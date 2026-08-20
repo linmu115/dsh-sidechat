@@ -319,8 +319,25 @@ export interface SlotsService {
 /** Published composer input state (subset of the real InputState). */
 export interface InputStateSnapshot {
   readonly draft: string
+  readonly draftRev: number
   readonly phase: string
+  readonly occurrences: readonly ReferenceOccurrence[]
   readonly queue?: readonly unknown[]
+}
+
+/** Native U+FFFC reference occurrence published by the rc.7 input machine. */
+export interface ReferenceOccurrence {
+  readonly occurrenceId: number
+  readonly source: string
+  readonly ref: string
+  readonly offset: number
+  readonly label: string
+  readonly clipboardText: string
+}
+
+/** Public input-trigger registry face used to own reference serialization. */
+export interface InputTriggerService {
+  registerSource(source: unknown): () => void
 }
 
 /** Session input snapshot as exposed on `InputZone.input`. */

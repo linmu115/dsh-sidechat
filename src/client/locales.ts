@@ -66,6 +66,9 @@ export const en = {
   chipMany: '{n} annotations',
   removeTitle: 'Remove annotation',
   removeAria: 'Remove annotation {n}',
+  referenceChip: 'Quote',
+  referenceNumber: 'Quote {n}',
+  referenceCardAria: 'Quote {n}: {text}',
 
   // model-facing quote format
   noteLine: 'Note: {note}',
@@ -127,6 +130,9 @@ export const zh: Record<CopyKey, string> = {
   chipMany: '{n} 条注释',
   removeTitle: '移除注释',
   removeAria: '移除注释 {n}',
+  referenceChip: '引用',
+  referenceNumber: '引用 {n}',
+  referenceCardAria: '引用 {n}：{text}',
 
   noteLine: '注解：{note}',
   noNote: '（无注解）',

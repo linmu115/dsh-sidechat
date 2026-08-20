@@ -22,9 +22,10 @@ English · [中文](README.md)
 
 Select text in an assistant message and turn "quote + your note" into context for the model:
 
-- **Add to conversation**: the selection stays highlighted with a blue numbered badge, an annotation editor pops up (notes optional); the composer shows an「N 条注释」chip, and all live annotations ride along with your next message;
+- **Add to conversation**: the selection stays highlighted with a blue numbered badge and an optional-note editor; Codex-style reference cards appear above the composer, reveal the full quote on hover, and can be removed with ×;
 - **Ask in side chat**: after the note editor, the quote + note lands straight in a side chat's composer;
-- Click a badge to reopen the editor (edit/delete); numbers follow creation order and are never re-packed on delete; page-level lifecycle (gone on reload).
+- Click a badge to reopen the editor (edit/delete); remaining annotations are renumbered to a continuous 1…N after deletion; page-level lifecycle (gone on reload).
+- Quotes use DSH's native reference codec and serialize only when sent, so the visible textarea no longer contains a block of `> quote` text. Removing a card also removes that quote from the pending model context.
 
 | Selection popover | Annotation editor | Badge + chip |
 |---|---|---|

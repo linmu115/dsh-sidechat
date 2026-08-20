@@ -1,67 +1,189 @@
 /**
- * Managed draft prefix (Workitem 02 发送携带的降级方案): while a session has
- * active annotations, their formatted quote block is maintained at the very
- * top of the composer draft; the user's own text follows it, so sending
- * naturally carries the context. The composer chip clears on the send edge
- * (draft non-empty → empty), the annotations flip to 'sent', and the prefix
- * dissolves with the already-cleared draft.
+ * Native composer-reference integration.
  *
- * insertReference spike conclusion: the U+FFFC chip path is NOT viable from a
- * plugin — `SessionInput.insertReference` requires a span CAS'd against the
- * live draftRev (a trigger-pipeline concept), and chip serialization routes
- * through the source owner's ReferenceCodec, which is package-internal to
- * ui-input-trigger with no plugin-facing registry. An unowned source would
- * mark the occurrence invalid and fail the whole submit. Hence this file.
+ * DSH rc.7 exposes two public halves that are useful together:
+ *
+ * - `inputTriggers.registerSource()` owns reference serialization;
+ * - `SessionInput.insertReference()` puts an object-replacement chip in the
+ *   draft without exposing the model-facing quote text in the textarea.
+ *
+ * The plugin keeps exactly one native reference per session. Its codec reads
+ * the current active annotation set at send time, so removing a floating card
+ * immediately removes it from the eventual model context as well.
  */
-import type { Context, ConversationService, SessionId, SessionInput } from '../../context-types.ts'
-import { buildQuoteBlock, nextManagedDraft } from './format.ts'
+import type {
+  Context,
+  InputStateSnapshot,
+  InputTriggerService,
+  ReferenceOccurrence,
+  SessionId,
+  SessionInput,
+} from '../../context-types.ts'
+import { t } from '../locales.ts'
+import { buildQuoteBlock } from './format.ts'
 import type { AnnotationStore } from './model.ts'
 
-/** The head (quote block + blank line) last written into each session's draft. */
-const managedHeads = new Map<SessionId, string>()
+export const ANNOTATION_REFERENCE_SOURCE = 'dsh-sidechat-annotations'
+const PRIVATE_TRIGGER = '\u0000'
+const REF_SEPARATOR = '|'
+
+interface EncodedReference {
+  readonly sessionId: string
+  readonly ownsGap: boolean
+}
+
+function encodeReference(sessionId: string, ownsGap: boolean): string {
+  return `${encodeURIComponent(sessionId)}${REF_SEPARATOR}${ownsGap ? '1' : '0'}`
+}
+
+function decodeReference(ref: string): EncodedReference | undefined {
+  const separator = ref.lastIndexOf(REF_SEPARATOR)
+  if (separator < 0) return undefined
+  try {
+    return {
+      sessionId: decodeURIComponent(ref.slice(0, separator)),
+      ownsGap: ref.slice(separator + 1) === '1',
+    }
+  } catch {
+    return undefined
+  }
+}
+
+function ownsSession(occurrence: ReferenceOccurrence, sessionId: string): boolean {
+  return occurrence.source === ANNOTATION_REFERENCE_SOURCE
+    && decodeReference(occurrence.ref)?.sessionId === sessionId
+}
+
+function modelContext(store: AnnotationStore, ref: string): string {
+  const decoded = decodeReference(ref)
+  if (decoded === undefined) return ''
+  return buildQuoteBlock(store.listActive(decoded.sessionId))
+}
+
+/** Public input-trigger source used only as the codec owner for our chips. */
+export function createAnnotationReferenceSource(store: AnnotationStore) {
+  return {
+    // A private, untypable trigger keeps this codec-only source out of / and @
+    // candidate menus while still making it visible to reference serialization.
+    trigger: PRIVATE_TRIGGER,
+    name: ANNOTATION_REFERENCE_SOURCE,
+    candidates: async (): Promise<readonly never[]> => [],
+    onPick: (): { text: string } => ({ text: '' }),
+    codec: {
+      clipboardText(ref: string): string {
+        return modelContext(store, ref)
+      },
+      serialize(ref: string): Promise<string> {
+        const context = modelContext(store, ref)
+        return context === ''
+          ? Promise.reject(new Error('dsh-sidechat: annotation reference has no active context'))
+          : Promise.resolve(context)
+      },
+    },
+  }
+}
+
+/** Register the reference codec and return its disposer. */
+export function registerAnnotationReferenceSource(ctx: Context, store: AnnotationStore): () => void {
+  const inputTriggers = ctx.get('inputTriggers') as InputTriggerService | undefined
+  if (inputTriggers === undefined) {
+    console.warn('[dsh-sidechat] inputTriggers unavailable; annotation references are disabled')
+    return () => {}
+  }
+  return inputTriggers.registerSource(createAnnotationReferenceSource(store))
+}
 
 /** Resolve the per-session input facade, degrading to undefined (never throws). */
 export function resolveInput(ctx: Context, sessionId: SessionId): SessionInput | undefined {
   try {
     const actx = ctx.sessions.scope(sessionId)
     if (actx === undefined) return undefined
-    const conversation = ctx.get('conversation') as ConversationService | undefined
-    return conversation?.input.for(actx)
+    const conversation = ctx.get('conversation') as { input?: { for(ctx: Context): SessionInput | undefined } } | undefined
+    return conversation?.input?.for(actx)
   } catch {
     return undefined
   }
 }
 
 /**
- * Rewrite one session's draft so its managed head matches the active
- * annotations. A no-op when nothing would change (the common case while the
- * user types their own message below the head).
+ * Remove every native reference owned by this plugin for one session. The
+ * separator inserted by DSH is removed only when the encoded reference says
+ * this plugin created it.
  */
-export function syncSessionDraft(ctx: Context, store: AnnotationStore, sessionId: SessionId): void {
+export function withoutAnnotationReferences(
+  snapshot: InputStateSnapshot,
+  sessionId: string,
+): string {
+  const owned = snapshot.occurrences
+    .filter(occurrence => ownsSession(occurrence, sessionId))
+    .sort((a, b) => b.offset - a.offset)
+  let draft = snapshot.draft
+  for (const occurrence of owned) {
+    const decoded = decodeReference(occurrence.ref)
+    let end = occurrence.offset + 1
+    if (decoded?.ownsGap === true && draft[end] === ' ') end += 1
+    draft = draft.slice(0, occurrence.offset) + draft.slice(end)
+  }
+  return draft
+}
+
+/** Keep one native reference iff the session currently has active annotations. */
+export function syncSessionReference(
+  ctx: Context,
+  store: AnnotationStore,
+  sessionId: SessionId,
+): 'inserted' | 'removed' | 'unchanged' | 'unavailable' | 'failed' {
   try {
     const input = resolveInput(ctx, sessionId)
-    if (input === undefined) return
-    const block = buildQuoteBlock(store.listActive(sessionId))
-    const lastHead = managedHeads.get(sessionId) ?? ''
-    const draft = input.state.getSnapshot().draft
-    const next = nextManagedDraft(draft, lastHead, block)
-    // block 为空（注释全部 sent/移除）时不覆写 managedHeads：submit 失败
-    // rollback 会把含旧前缀的草稿恢复回来，保留 lastHead 才能让下一次 sync
-    // 正常剥离它，否则新注释的前缀会叠在旧前缀之上（双重引用块）。
-    if (block !== '') managedHeads.set(sessionId, next.head)
-    if (next.draft === draft) return
-    input.setDraft(next.draft)
+    if (input === undefined) return 'unavailable'
+    const snapshot = input.state.getSnapshot()
+    const owned = snapshot.occurrences.filter(occurrence => ownsSession(occurrence, sessionId))
+    const hasActive = store.countActive(sessionId) > 0
+
+    if (hasActive && owned.length === 0) {
+      const ownsGap = snapshot.draft === '' || snapshot.draft[0] !== ' '
+      const inserted = input.insertReference({
+        source: ANNOTATION_REFERENCE_SOURCE,
+        ref: encodeReference(sessionId, ownsGap),
+        label: t('referenceChip'),
+        clipboardText: buildQuoteBlock(store.listActive(sessionId)),
+      }, {
+        start: 0,
+        end: 0,
+        draftRev: snapshot.draftRev,
+      })
+      return inserted ? 'inserted' : 'failed'
+    }
+
+    if (!hasActive && owned.length > 0) {
+      const nextDraft = withoutAnnotationReferences(snapshot, sessionId)
+      if (nextDraft !== snapshot.draft) input.setDraft(nextDraft)
+      return 'removed'
+    }
+
+    return 'unchanged'
   } catch (error) {
-    console.warn('[dsh-sidechat] draft sync failed:', error)
+    console.warn('[dsh-sidechat] reference sync failed:', error)
+    return 'failed'
   }
 }
 
-/** Re-sync every session holding annotations (store-change fan-out). */
-export function syncAllDrafts(ctx: Context, store: AnnotationStore): void {
-  for (const sessionId of store.sessions()) syncSessionDraft(ctx, store, sessionId)
+/** Re-sync every session that has ever held an annotation in this activation. */
+export function syncAllReferences(ctx: Context, store: AnnotationStore): void {
+  for (const sessionId of store.sessions()) syncSessionReference(ctx, store, sessionId)
 }
 
-/** Forget all managed heads (page-level lifecycle; plugin teardown/testing). */
-export function resetManagedHeads(): void {
-  managedHeads.clear()
+/** Remove stale chips before HMR/plugin teardown unregisters the codec owner. */
+export function clearAllReferences(ctx: Context, store: AnnotationStore): void {
+  for (const sessionId of store.sessions()) {
+    try {
+      const input = resolveInput(ctx, sessionId)
+      if (input === undefined) continue
+      const snapshot = input.state.getSnapshot()
+      const nextDraft = withoutAnnotationReferences(snapshot, sessionId)
+      if (nextDraft !== snapshot.draft) input.setDraft(nextDraft)
+    } catch (error) {
+      console.warn('[dsh-sidechat] reference cleanup failed:', error)
+    }
+  }
 }

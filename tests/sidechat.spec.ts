@@ -3,6 +3,7 @@
  * fork 准入、面板相位、消息流折叠。全部无副作用，不挂 DOM。
  */
 import { describe, expect, it } from 'vitest'
+import { attachLocale } from '../src/client/locales.ts'
 import type { Context, ConversationSnapshot, SidebarState } from '../src/context-types.ts'
 import {
   SIDE_TAB_TYPE,
@@ -20,6 +21,11 @@ import {
   transcriptOf,
   truncateText,
 } from '../src/client/sidechat/model.ts'
+
+attachLocale({
+  getSnapshot: () => ({ active: 'en' }),
+  subscribe: () => () => {},
+})
 
 // ── 标题编号 ────────────────────────────────────────────────────────────────
 

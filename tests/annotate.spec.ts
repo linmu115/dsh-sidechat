@@ -1,23 +1,34 @@
 /**
- * Workitem 02 纯函数单测：注释 store（增删 / 编号不重排 / 计数 / 发送沿）、
- * 引用块格式化（发送给模型的数据形态）、截断、选区校验、受管草稿前缀数学。
+ * Workitem 02 纯函数单测：注释 store（增删 / 连续编号 / 计数 / 发送沿）、
+ * 引用块格式化、原生引用 codec/清理、截断与选区校验。
  * 全部为 node 环境的纯函数测试（无 jsdom 依赖）。
  */
 import { describe, expect, it } from 'vitest'
+import { attachLocale } from '../src/client/locales.ts'
 import { createAnnotationStore } from '../src/client/annotate/model.ts'
 import type { AnnotationDraft } from '../src/client/annotate/model.ts'
+import type { InputStateSnapshot } from '../src/context-types.ts'
+import {
+  ANNOTATION_REFERENCE_SOURCE,
+  createAnnotationReferenceSource,
+  withoutAnnotationReferences,
+} from '../src/client/annotate/draft.ts'
 import {
   SELECTION_LIMIT,
   TRUNCATION_MARK,
   buildQuoteBlock,
   buildSideChatQuote,
   isSendEdge,
-  nextManagedDraft,
   quoteLines,
   truncateQuote,
 } from '../src/client/annotate/format.ts'
 import { ASSISTANT_KIND, isEligibleSelection } from '../src/client/annotate/selection.ts'
 import { BADGE_SPREAD_STEP, spreadBadgePoint } from '../src/client/annotate/anchor.ts'
+
+attachLocale({
+  getSnapshot: () => ({ active: 'en' }),
+  subscribe: () => () => {},
+})
 
 function draft(sessionId: string, text: string, note = ''): AnnotationDraft {
   return { sessionId, anchorKey: 'k1', text, anchorText: text, occurrence: 0, note }
@@ -34,16 +45,17 @@ describe('annotation store', () => {
     expect(new Set([a1.id, a2.id, b1.id]).size).toBe(3)
   })
 
-  it('does not renumber after deletion (删除不重排)', () => {
+  it('renumbers after deletion and keeps the surviving order continuous', () => {
     const store = createAnnotationStore()
     store.add(draft('s1', '一'))
     const second = store.add(draft('s1', '二'))
     store.remove(store.list('s1')[0]!.id)
-    expect(store.list('s1').map(a => a.number)).toEqual([2])
-    // 新建继续递增，不复用已删除的编号
+    expect(store.list('s1').map(a => a.number)).toEqual([1])
+    expect(store.get(second.id)?.number).toBe(1)
+    // 新建紧接当前尾号，不留下被删除编号的空洞。
     const third = store.add(draft('s1', '三'))
-    expect(third.number).toBe(3)
-    expect(second.number).toBe(2)
+    expect(third.number).toBe(2)
+    expect(store.list('s1').map(a => a.number)).toEqual([1, 2])
   })
 
   it('counts only active annotations per session (chip count)', () => {
@@ -126,29 +138,64 @@ describe('quote formatting', () => {
   })
 })
 
-describe('managed draft prefix math', () => {
-  it('prepends the head to an empty draft', () => {
-    const next = nextManagedDraft('', '', '> 原文\n(no note)')
-    expect(next).toEqual({ head: '> 原文\n(no note)\n\n', draft: '> 原文\n(no note)\n\n' })
+describe('native annotation reference', () => {
+  it('serializes the current active annotations instead of exposing quote text in the draft', async () => {
+    const store = createAnnotationStore()
+    const first = store.add(draft('s1', '原文一', '关注这里'))
+    store.add(draft('s1', '原文二'))
+    const source = createAnnotationReferenceSource(store)
+    const ref = `${encodeURIComponent('s1')}|1`
+    expect(await source.codec.serialize(ref)).toContain('原文一')
+    expect(await source.codec.serialize(ref)).toContain('原文二')
+
+    store.remove(first.id)
+    const afterDelete = await source.codec.serialize(ref)
+    expect(afterDelete).not.toContain('原文一')
+    expect(afterDelete).toContain('原文二')
   })
 
-  it('preserves user text below the head across block updates', () => {
-    const first = nextManagedDraft('', '', '> 原文 1\n(no note)')
-    const typed = `${first.draft}用户正文`
-    const second = nextManagedDraft(typed, first.head, '> 原文 1\nNote: 改')
-    expect(second.draft).toBe('> 原文 1\nNote: 改\n\n用户正文')
+  it('removes the owned placeholder and its generated gap while preserving user text', () => {
+    const snapshot: InputStateSnapshot = {
+      draft: '\uFFFC 用户正文',
+      draftRev: 3,
+      phase: 'plain',
+      occurrences: [{
+        occurrenceId: 1,
+        source: ANNOTATION_REFERENCE_SOURCE,
+        ref: `${encodeURIComponent('s1')}|1`,
+        offset: 0,
+        label: '引用',
+        clipboardText: '> 原文',
+      }],
+    }
+    expect(withoutAnnotationReferences(snapshot, 's1')).toBe('用户正文')
   })
 
-  it('removes the head cleanly when the block empties (all sent/deleted)', () => {
-    const first = nextManagedDraft('', '', '> 原文\n(no note)')
-    const typed = `${first.draft}用户正文`
-    const cleared = nextManagedDraft(typed, first.head, '')
-    expect(cleared).toEqual({ head: '', draft: '用户正文' })
-  })
-
-  it('treats a meddled head as user text instead of crashing', () => {
-    const next = nextManagedDraft('用户把头部改掉了', '> 旧头\n\n', '> 新头\n（无注解）')
-    expect(next.draft).toBe('> 新头\n（无注解）\n\n用户把头部改掉了')
+  it('leaves other sessions and other reference sources untouched', () => {
+    const snapshot: InputStateSnapshot = {
+      draft: `A\uFFFC B\uFFFC C`,
+      draftRev: 4,
+      phase: 'plain',
+      occurrences: [
+        {
+          occurrenceId: 1,
+          source: ANNOTATION_REFERENCE_SOURCE,
+          ref: `${encodeURIComponent('s2')}|0`,
+          offset: 1,
+          label: '引用',
+          clipboardText: '> 二',
+        },
+        {
+          occurrenceId: 2,
+          source: 'other-source',
+          ref: 'x',
+          offset: 4,
+          label: 'other',
+          clipboardText: 'other',
+        },
+      ],
+    }
+    expect(withoutAnnotationReferences(snapshot, 's1')).toBe(snapshot.draft)
   })
 })
 

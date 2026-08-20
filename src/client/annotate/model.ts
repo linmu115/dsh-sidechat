@@ -3,9 +3,9 @@
  * (DOM-free, React-free) so the whole lifecycle is unit-testable. One instance
  * per plugin activation; page-level lifecycle — nothing is persisted.
  *
- * Numbering: a per-session monotonic counter assigns each annotation its
- * display number at creation (①②… rendered as plain digits). Numbers are
- * never reused and never re-packed on delete — 删除不重排.
+ * Numbering: annotations are numbered by their current per-session order.
+ * Removing one annotation immediately packs the remaining numbers so the UI
+ * always shows 1…N without holes, matching Codex's composer references.
  *
  * State machine per annotation: 'active' (counts in the composer chip, rides
  * the managed draft prefix) → 'sent' (the message it was attached to went
@@ -14,7 +14,7 @@
 export interface Annotation {
   /** Store-unique identity (monotonic across sessions). */
   readonly id: number
-  /** Per-session display number assigned at creation; never reused. */
+  /** Current per-session display number; packed again after deletion. */
   readonly number: number
   readonly sessionId: string
   /** `data-chat-anchor-key` of the owning message (re-anchor key). */
@@ -63,8 +63,6 @@ export function createAnnotationStore(now: () => number = () => Date.now()): Ann
   let annotations: Annotation[] = []
   let nextId = 1
   let version = 0
-  /** Per-session next display number. */
-  const counters = new Map<string, number>()
   const listeners = new Set<() => void>()
 
   const notify = (): void => {
@@ -84,8 +82,10 @@ export function createAnnotationStore(now: () => number = () => Date.now()): Ann
       return () => { listeners.delete(fn) }
     },
     add(draft: AnnotationDraft): Annotation {
-      const number = (counters.get(draft.sessionId) ?? 0) + 1
-      counters.set(draft.sessionId, number)
+      const number = annotations.reduce(
+        (count, annotation) => count + (annotation.sessionId === draft.sessionId ? 1 : 0),
+        0,
+      ) + 1
       const annotation: Annotation = {
         id: nextId,
         number,
@@ -108,8 +108,16 @@ export function createAnnotationStore(now: () => number = () => Date.now()): Ann
       replace(id, { note })
     },
     remove(id: number): void {
-      if (!annotations.some(a => a.id === id)) return
-      annotations = annotations.filter(a => a.id !== id)
+      const removed = annotations.find(a => a.id === id)
+      if (removed === undefined) return
+      let number = 0
+      annotations = annotations
+        .filter(a => a.id !== id)
+        .map((annotation) => {
+          if (annotation.sessionId !== removed.sessionId) return annotation
+          number += 1
+          return annotation.number === number ? annotation : { ...annotation, number }
+        })
       notify()
     },
     markSessionSent(sessionId: string): void {

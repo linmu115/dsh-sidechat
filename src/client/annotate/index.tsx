@@ -18,13 +18,18 @@ import { createAnnotationStore } from './model.ts'
 import { createSelectionController } from './selection.ts'
 import { AnnotateOverlay } from './overlay.tsx'
 import { createAnnotationChip } from './chip.tsx'
-import { resetManagedHeads, syncAllDrafts } from './draft.ts'
+import {
+  clearAllReferences,
+  registerAnnotationReferenceSource,
+  syncAllReferences,
+} from './draft.ts'
 
 export function registerAnnotations(ctx: Context): void {
   ctx.effect(() => {
     try {
       const store = createAnnotationStore()
       const controller = createSelectionController(() => ctx.sessions.list.getSnapshot().current ?? '')
+      const unregisterReferenceSource = registerAnnotationReferenceSource(ctx, store)
 
       // The overlay root: toolbar + badges + highlight + editor.
       const host = document.createElement('div')
@@ -33,9 +38,9 @@ export function registerAnnotations(ctx: Context): void {
       const root = createRoot(host)
       root.render(<AnnotateOverlay ctx={ctx} store={store} controller={controller} />)
 
-      // 发送携带（受管草稿前缀块）: keep each session's composer draft headed by
-      // its active annotations' quote block; the chip clears on the send edge.
-      const offStore = store.subscribe(() => { syncAllDrafts(ctx, store) })
+      // 发送携带：草稿只保存一个 DSH 原生引用占位符；真正的引用块由注册的
+      // codec 在发送瞬间序列化，因此输入框不再暴露大段 `> ...` 文本。
+      const offStore = store.subscribe(() => { syncAllReferences(ctx, store) })
 
       // The「N 条注释」chip: conversation.input.dock is the official composer
       // attachment seat; slots.inject waits for the shell's declaration (the
@@ -47,13 +52,14 @@ export function registerAnnotations(ctx: Context): void {
           id: 'dsh-sidechat-annotations',
           order: 10,
           registrant: 'dsh-sidechat',
-        }, createAnnotationChip(store))
+        }, createAnnotationChip(ctx, store))
       })
 
       return () => {
         offStore()
+        clearAllReferences(ctx, store)
+        unregisterReferenceSource()
         controller.dispose()
-        resetManagedHeads()
         // 同帧 render/unmount 会触发 React 警告——推迟到下一帧。
         setTimeout(() => { root.unmount() })
         host.remove()
