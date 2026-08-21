@@ -20,6 +20,7 @@ import { AnnotateOverlay } from './overlay.tsx'
 import { createAnnotationChip } from './chip.tsx'
 import {
   clearAllReferences,
+  HIDDEN_REFERENCE_APPEARANCE,
   registerAnnotationReferenceSource,
   syncAllReferences,
 } from './draft.ts'
@@ -30,6 +31,14 @@ export function registerAnnotations(ctx: Context): void {
       const store = createAnnotationStore()
       const controller = createSelectionController(() => ctx.sessions.list.getSnapshot().current ?? '')
       const unregisterReferenceSource = registerAnnotationReferenceSource(ctx, store)
+
+      // DSH rc.2 has no serializer-only reference flag: every occurrence is
+      // mirrored as `@${label}`. Hide only our private appearance marker; the
+      // occurrence stays intact for native serialization and caret geometry.
+      const referenceStyle = document.createElement('style')
+      referenceStyle.dataset.dshSidechatHiddenReference = ''
+      referenceStyle.textContent = `[data-reference-appearance="${HIDDEN_REFERENCE_APPEARANCE}"] { visibility: hidden !important; }`
+      document.head.appendChild(referenceStyle)
 
       // The overlay root: toolbar + badges + highlight + editor.
       const host = document.createElement('div')
@@ -59,6 +68,7 @@ export function registerAnnotations(ctx: Context): void {
         offStore()
         clearAllReferences(ctx, store)
         unregisterReferenceSource()
+        referenceStyle.remove()
         controller.dispose()
         // 同帧 render/unmount 会触发 React 警告——推迟到下一帧。
         setTimeout(() => { root.unmount() })

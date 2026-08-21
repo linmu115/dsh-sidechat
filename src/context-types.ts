@@ -325,12 +325,14 @@ export interface InputStateSnapshot {
   readonly queue?: readonly unknown[]
 }
 
-/** Native U+FFFC reference occurrence published by the rc.7 input machine. */
+/** Native inline reference occurrence published by the DSH input machine. */
 export interface ReferenceOccurrence {
   readonly occurrenceId: number
   readonly source: string
   readonly ref: string
   readonly offset: number
+  /** rc.2 stores the full `@${label}` range; older builds used one marker. */
+  readonly length?: number
   readonly label: string
   readonly clipboardText: string
 }
@@ -353,16 +355,15 @@ export interface InputZone {
 }
 
 /**
- * U+FFFC reference-chip insert (spike result: NOT used — serialization of the
- * chip routes through the source owner's ReferenceCodec, which is
- * package-internal to ui-input-trigger with no plugin-facing registry; an
- * unowned source would mark the occurrence invalid and fail submit. Mirrored
- * here only to document the probe target).
+ * Native reference-chip insert. Serialization routes through the source
+ * owner's registered codec; dsh-sidechat uses a private source and appearance.
  */
 export interface ReferenceInsert {
   readonly source: string
   readonly ref: string
   readonly label: string
+  /** The private value is rendered invisibly by dsh-sidechat's exact selector. */
+  readonly appearance?: 'session' | 'file' | 'folder' | 'dsh-sidechat-hidden'
   readonly clipboardText: string
 }
 
@@ -377,10 +378,10 @@ export interface Context {
   slots: SlotsService
 }
 
-/** SessionInput completion for annotate: the live state store + the (unused) chip insert face. */
+/** SessionInput completion for annotate: live state plus native reference insertion. */
 export interface SessionInput {
   /** Input state store (draft reads + subscribe for the send-edge watch). */
   readonly state: ObservableSnapshot<InputStateSnapshot>
-  /** Spike-only mirror; see {@link ReferenceInsert}. Not called by annotate. */
+  /** Insert a serializer-owned native reference; see {@link ReferenceInsert}. */
   insertReference(ref: ReferenceInsert, span: TokenSpan): boolean
 }

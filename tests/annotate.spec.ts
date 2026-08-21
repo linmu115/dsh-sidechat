@@ -11,6 +11,8 @@ import type { InputStateSnapshot } from '../src/context-types.ts'
 import {
   ANNOTATION_REFERENCE_SOURCE,
   createAnnotationReferenceSource,
+  HIDDEN_REFERENCE_APPEARANCE,
+  syncSessionReference,
   withoutAnnotationReferences,
 } from '../src/client/annotate/draft.ts'
 import {
@@ -156,7 +158,7 @@ describe('native annotation reference', () => {
 
   it('removes the owned placeholder and its generated gap while preserving user text', () => {
     const snapshot: InputStateSnapshot = {
-      draft: '\uFFFC 用户正文',
+      draft: '@引用 用户正文',
       draftRev: 3,
       phase: 'plain',
       occurrences: [{
@@ -164,11 +166,42 @@ describe('native annotation reference', () => {
         source: ANNOTATION_REFERENCE_SOURCE,
         ref: `${encodeURIComponent('s1')}|1`,
         offset: 0,
+        length: 3,
         label: '引用',
         clipboardText: '> 原文',
       }],
     }
     expect(withoutAnnotationReferences(snapshot, 's1')).toBe('用户正文')
+  })
+
+  it('inserts a serializer-owned reference with no visible label or icon', () => {
+    const store = createAnnotationStore()
+    store.add(draft('s1', '原文'))
+    let inserted: Record<string, unknown> | undefined
+    const input = {
+      state: {
+        getSnapshot: () => ({ draft: '', draftRev: 7, phase: 'plain', occurrences: [] }),
+        subscribe: () => () => {},
+      },
+      insertReference(reference: Record<string, unknown>) {
+        inserted = reference
+        return true
+      },
+      setDraft() {},
+    }
+    const ctx = {
+      sessions: { scope: () => ({}) },
+      get: (name: string) => name === 'conversation'
+        ? { input: { for: () => input } }
+        : undefined,
+    }
+
+    expect(syncSessionReference(ctx as never, store, 's1')).toBe('inserted')
+    expect(inserted).toMatchObject({
+      source: ANNOTATION_REFERENCE_SOURCE,
+      label: '',
+      appearance: HIDDEN_REFERENCE_APPEARANCE,
+    })
   })
 
   it('leaves other sessions and other reference sources untouched', () => {
@@ -182,6 +215,7 @@ describe('native annotation reference', () => {
           source: ANNOTATION_REFERENCE_SOURCE,
           ref: `${encodeURIComponent('s2')}|0`,
           offset: 1,
+          length: 1,
           label: '引用',
           clipboardText: '> 二',
         },
@@ -190,6 +224,7 @@ describe('native annotation reference', () => {
           source: 'other-source',
           ref: 'x',
           offset: 4,
+          length: 1,
           label: 'other',
           clipboardText: 'other',
         },

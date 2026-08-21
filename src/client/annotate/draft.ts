@@ -19,11 +19,11 @@ import type {
   SessionId,
   SessionInput,
 } from '../../context-types.ts'
-import { t } from '../locales.ts'
 import { buildQuoteBlock } from './format.ts'
 import type { AnnotationStore } from './model.ts'
 
 export const ANNOTATION_REFERENCE_SOURCE = 'dsh-sidechat-annotations'
+export const HIDDEN_REFERENCE_APPEARANCE = 'dsh-sidechat-hidden'
 const PRIVATE_TRIGGER = '\u0000'
 const REF_SEPARATOR = '|'
 
@@ -120,7 +120,7 @@ export function withoutAnnotationReferences(
   let draft = snapshot.draft
   for (const occurrence of owned) {
     const decoded = decodeReference(occurrence.ref)
-    let end = occurrence.offset + 1
+    let end = occurrence.offset + (occurrence.length ?? 1)
     if (decoded?.ownsGap === true && draft[end] === ' ') end += 1
     draft = draft.slice(0, occurrence.offset) + draft.slice(end)
   }
@@ -145,7 +145,11 @@ export function syncSessionReference(
       const inserted = input.insertReference({
         source: ANNOTATION_REFERENCE_SOURCE,
         ref: encodeReference(sessionId, ownsGap),
-        label: t('referenceChip'),
+        // rc.2 always renders native references as `@${label}`. The custom
+        // appearance is hidden by our narrowly scoped composer style, while
+        // the occurrence remains available to the native submit serializer.
+        label: '',
+        appearance: HIDDEN_REFERENCE_APPEARANCE,
         clipboardText: buildQuoteBlock(store.listActive(sessionId)),
       }, {
         start: 0,
