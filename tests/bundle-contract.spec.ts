@@ -13,6 +13,14 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
+  it('declares the official web profile dependency versions', () => {
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+      peerDependencies: Record<string, string>
+    }
+    expect(packageJson.peerDependencies['dsh-annotation-core']).toBe('>=0.1.0 <0.2.0')
+    expect(packageJson.peerDependencies['dsh-better-sidebar']).toBe('^0.16.0')
+  })
+
   it('contains no legacy annotation state, quote codec, hidden chip, or copied core runtime', () => {
     const files = sourceFiles(join(process.cwd(), 'src'))
     const source = files.join('\n')

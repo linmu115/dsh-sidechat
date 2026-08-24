@@ -108,9 +108,9 @@ minimumReleaseAgeExclude:
   - dsh-sidechat
 EOF
 
-# 步骤 2：按依赖顺序安装。better-sidebar 版本钉住：缺省 0.12.3；
-# BS_VERSION 覆盖可做前向兼容验证，如 BS_VERSION=0.13.0）
-BS_VERSION="${BS_VERSION:-0.12.3}"
+# 步骤 2：按依赖顺序安装。better-sidebar 缺省使用官方 web profile
+# 当前验证版本 0.16.0；BS_VERSION 可覆盖以做前向兼容验证。
+BS_VERSION="${BS_VERSION:-0.16.0}"
 say "安装 dsh-annotation-core..."
 $DSH_CMD plugin --profile web add "file:$CORE_TARBALL"
 say "安装 dsh-better-sidebar@${BS_VERSION}..."

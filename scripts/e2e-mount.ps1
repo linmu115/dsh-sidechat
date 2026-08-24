@@ -89,7 +89,8 @@ minimumReleaseAgeExclude:
       [IO.File]::Move($variantClient, $installedClient, $true)
     }
   }
-  & $DshCommand plugin --profile web add "dsh-better-sidebar@0.12.3"
+  $betterSidebarVersion = if ($env:BS_VERSION) { $env:BS_VERSION } else { "0.16.0" }
+  & $DshCommand plugin --profile web add "dsh-better-sidebar@$betterSidebarVersion"
   if ($LASTEXITCODE -ne 0) { throw "Installing dsh-better-sidebar failed" }
   & $DshCommand plugin --profile web add ("file:" + [IO.Path]::GetFullPath($SidechatTarball))
   if ($LASTEXITCODE -ne 0) { throw "Installing dsh-sidechat failed" }
@@ -107,6 +108,7 @@ minimumReleaseAgeExclude:
   $server = Start-Process -FilePath $DshCommand -ArgumentList @("web", "--port", "$Port", "--no-open") -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden
   $url = "http://127.0.0.1:$Port"
   $ready = $false
+  Add-Type -AssemblyName System.Net.Http
   $readyHandler = [Net.Http.HttpClientHandler]::new()
   $readyHandler.UseProxy = $false
   $readyClient = [Net.Http.HttpClient]::new($readyHandler)
