@@ -33,7 +33,21 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 
 ## 安装
 
-前置：已安装 [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（本插件的硬依赖）。
+### 依赖关系
+
+| 依赖 | 作用 | 当前状态 |
+|---|---|---|
+| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 当前版本的硬依赖 |
+| `dsh-annotation-core` | 提供 sidechat 与 sticker-board 共用的注释数据模型、输入框气泡、发送绑定、模型上下文和已发送注释展示 | 统一注释升级完成后成为硬依赖 |
+
+`dsh-annotation-core` 是独立维护的 DSH 基础插件，不归属于 sidechat 或
+sticker-board。安装系统应把它作为官方 `web` profile 的顶层依赖安装并只加载一个实例；
+sidechat 只声明兼容的 peer dependency，不在自己的包内嵌套另一份 core。若已安装的 core
+版本不兼容，安装或升级应在改动运行环境前停止并给出所需版本，而不是带着不匹配的版本启动。
+
+当前 `0.1.0-codex.2` 尚未接入 `dsh-annotation-core`，安装前只需确认
+[dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 已安装。完成统一注释升级后，
+安装器或 DSH Maintenance Engine 将负责自动安装并启用匹配版本的 core，用户无需单独操作。
 
 ```bash
 dsh plugin --profile web add dsh-sidechat

@@ -33,7 +33,23 @@ Select text in an assistant message and turn "quote + your note" into context fo
 
 ## Install
 
-Prerequisite: [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) installed (hard peer dependency).
+### Dependencies
+
+| Dependency | Purpose | Status |
+|---|---|---|
+| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
+| `dsh-annotation-core` | Shared annotation data model, composer bubbles, send binding, model context, and sent-annotation presentation for sidechat and sticker-board | Becomes a hard dependency after the unified-annotation upgrade |
+
+`dsh-annotation-core` is an independently maintained DSH infrastructure plugin; it is not owned by either
+sidechat or sticker-board. The installer must place it at the top level of the official `web` profile and load
+exactly one instance. Sidechat declares only a compatible peer dependency and must not bundle a nested copy.
+If the installed core version is incompatible, installation or upgrade must stop before changing the live
+environment and report the required version.
+
+The current `0.1.0-codex.2` release has not yet adopted `dsh-annotation-core`, so its only prerequisite is
+[dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). Once the unified-annotation upgrade lands,
+the installer or DSH Maintenance Engine will install and enable the matching core automatically; users do not
+manage it separately.
 
 ```bash
 dsh plugin --profile web add dsh-sidechat
