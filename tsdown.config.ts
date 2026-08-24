@@ -115,6 +115,12 @@ function purityGatePlugin(): BuildPlugin {
           + 'select the dependency browser export or add an explicit browser implementation',
         )
       }
+      if (source === 'dsh-annotation-core' || source.startsWith('dsh-annotation-core/')) {
+        throw new Error(
+          `client bundle purity: "${source}" is a consumer peer — runtime value imports are forbidden; `
+          + 'resolve annotationCore through Cordis (type-only imports are erased)',
+        )
+      }
       if (!source.startsWith('@deepseek-ai/')) return null
       throw new Error(
         `client bundle purity: "${source}" is a platform package — cross-plugin value imports are forbidden; `

@@ -12,19 +12,24 @@
  * - Tab × 关闭即从界面消失（better-sidebar 关 tab 即出布局，meta 随之
  *   消失；jsonl 留盘是设计意图，不做删除）。
  *
- * 另安装：annotate 桥（sideChatBridge.current，WI-03 联动缝）与 /side
- * 斜杠命令（spike，popupSelect 形态，不可行时降级为只有 Tab 入口）。
+ * /side command remains an optional second entry point.
  */
 import { IconNewChatOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '../../context-types.ts'
-import { sideChatBridge } from '../bridge.ts'
+import { observeAnnotationCore } from '../annotation-core-resolver.ts'
+import { annotationSafetyGuard } from '../annotation-safety-guard.ts'
 import { SideChatPanel } from './SideChatPanel.tsx'
 import { SIDE_TAB_TYPE, canForkFrom, collectSideTabs, mintSideTabId, sideTabTitle } from './model.ts'
-import { openOrFocusSideChat } from './open.ts'
+import { releaseSideChatSession } from './session-controller.ts'
 import { t } from '../locales.ts'
 import { registerSideCommand } from './slash.ts'
 
 export function registerSideChat(ctx: Context): void {
+  const annotationCore = observeAnnotationCore(ctx, [
+    'embedded-composer-v1',
+    'embedded-conversation-node-v1',
+    'answer-link-v1',
+  ])
   ctx.effect(
     () => ctx.betterSidebar.registerTab({
       id: SIDE_TAB_TYPE,
@@ -35,22 +40,13 @@ export function registerSideChat(ctx: Context): void {
       createTab: (state) => ({
         tab: { id: mintSideTabId(), type: SIDE_TAB_TYPE, title: sideTabTitle(collectSideTabs(state).map(tab => tab.title)) },
       }),
-      component: (props) => <SideChatPanel {...props} />,
+      onClose: (tab) => {
+        releaseSideChatSession(tab.id)
+        void annotationSafetyGuard.closeTab(tab.id)
+      },
+      component: (props) => <SideChatPanel {...props} annotationCore={annotationCore} />,
     }),
     'dsh-sidechat: side chat tab',
   )
-
-  // annotate 桥：「在侧边聊天中提问」= 新建或聚焦一个侧边聊天 Tab 并写入草稿。
-  ctx.effect(() => {
-    const impl = {
-      askInSideChat: (sessionId: string, draftText: string): boolean =>
-        openOrFocusSideChat(ctx, sessionId, draftText),
-    }
-    sideChatBridge.current = impl
-    return () => {
-      if (sideChatBridge.current === impl) sideChatBridge.current = null
-    }
-  }, 'dsh-sidechat: annotate bridge')
-
   registerSideCommand(ctx)
 }

@@ -12,7 +12,6 @@
  * - betterSidebar: dsh-better-sidebar `src/client/service.ts` (+ docs/external-plugin-guide.md)
  * - sessions/workspaces: `@deepseek-ai/dsh-client-runtime` lib/types/client/contract/{sessions,session,workspaces}.d.ts
  *   (local checkout: <dsh install>/node_modules/@deepseek-ai/dsh-client-runtime/lib/types/client/...)
- * - conversation input / slots: `@deepseek-ai/dsh-client-ui-conversation` / `dsh-client-ui-slots` type surfaces
  */
 import type { Context as CordisContext } from 'cordis'
 import type { ReactNode } from 'react'
@@ -186,20 +185,6 @@ export interface WorkspacesService {
   archiveSession(sessionId: SessionId): Promise<void>
 }
 
-// ── conversation input machine (dsh-client-ui-conversation; lazy via ctx.get) ─
-
-export interface SessionInput {
-  setDraft(text: string): void
-  submit(mode?: string): void
-  notify(level: string, text: string): void
-}
-
-export interface ConversationService {
-  input: {
-    for(ctx: Context): SessionInput | undefined
-  }
-}
-
 // ── connection（dsh-client-connection；sessions RPC 直达面）──────────────────
 
 /** 会话的当前模型选择（`session.models` 的 current 字段）。 */
@@ -270,12 +255,6 @@ export interface ConversationSnapshot {
   runningCalls?: readonly unknown[]
 }
 
-/**
- * input 草稿机的 state store（权威：dsh-client-ui-conversation
- * input/contract.d.ts 的 SessionInput.state）——完整声明见下方 annotate 扩展节
- * （接口合并；draft 字段两侧都依赖）。
- */
-
 export interface Context {
   /**
    * 惰性非追踪服务读（运行时事实：context proxy 的 reflect.get）——
@@ -284,104 +263,4 @@ export interface Context {
    * 提供 `effect(execute, label?)`。）
    */
   get(name: string): unknown
-}
-
-// ── annotate 扩展 ────────────────────────────────────────────────────────────
-// Mirrors consumed by src/client/annotate/** (Workitem 02). Authorities:
-// - slots service: `@deepseek-ai/dsh-client-runtime` lib/types/client/slots.d.ts
-//   (SlotRegistry; register/inject) + `@deepseek-ai/dsh-client-ui-slots` index.d.ts
-// - input.dock owner share: `@deepseek-ai/dsh-client-ui-conversation`
-//   lib/types/client/contract/slots.d.ts (`conversation.input.dock` → InputZone)
-// - SessionInput: `.../lib/types/client/input/contract.d.ts`
-
-/** Registration options subset passed to `ctx.slots.register` (same shape better-sidebar mirrors). */
-export interface SlotRegisterOptions {
-  name: string
-  key?: string
-  id?: string
-  order?: number
-  label?: string | (() => string)
-  select?: (owner: unknown) => unknown
-  priority?: number
-  locale?: string
-  registrant?: string
-  inject?: (...args: any[]) => Record<string, unknown>
-  children?: Record<string, unknown>
-}
-
-/** The client slots service face (register returns the disposer). */
-export interface SlotsService {
-  register(options: SlotRegisterOptions, component: unknown): () => void
-  /** Run a callback for each declaration lifetime of a slot (no-op while undeclared). */
-  inject(key: string, callback: () => (() => void) | void): () => void
-}
-
-/** Published composer input state (subset of the real InputState). */
-export interface InputStateSnapshot {
-  readonly draft: string
-  readonly draftRev: number
-  readonly phase: string
-  readonly occurrences: readonly ReferenceOccurrence[]
-  readonly queue?: readonly unknown[]
-}
-
-/** Native inline reference occurrence published by the DSH input machine. */
-export interface ReferenceOccurrence {
-  readonly occurrenceId: number
-  readonly source: string
-  readonly ref: string
-  readonly offset: number
-  /** rc.2 stores the full `@${label}` range; older builds used one marker. */
-  readonly length?: number
-  readonly label: string
-  readonly clipboardText: string
-}
-
-/** Public input-trigger registry face used to own reference serialization. */
-export interface InputTriggerService {
-  registerSource(source: unknown): () => void
-}
-
-/** Session input snapshot as exposed on `InputZone.input`. */
-export interface ConversationSnapshotLite {
-  sessionId: SessionId
-  running: boolean
-}
-
-/** Owner share of the `conversation.input.dock` slot (point-in-time snapshots). */
-export interface InputZone {
-  readonly session: ConversationSnapshotLite
-  readonly input: InputStateSnapshot
-}
-
-/**
- * Native reference-chip insert. Serialization routes through the source
- * owner's registered codec; dsh-sidechat uses a private source and appearance.
- */
-export interface ReferenceInsert {
-  readonly source: string
-  readonly ref: string
-  readonly label: string
-  /** The private value is rendered invisibly by dsh-sidechat's exact selector. */
-  readonly appearance?: 'session' | 'file' | 'folder' | 'dsh-sidechat-hidden'
-  readonly clipboardText: string
-}
-
-export interface TokenSpan {
-  readonly start: number
-  readonly end: number
-  readonly draftRev: number
-}
-
-export interface Context {
-  /** The slot registry (provided by dsh-client-runtime, mounted before this plugin). */
-  slots: SlotsService
-}
-
-/** SessionInput completion for annotate: live state plus native reference insertion. */
-export interface SessionInput {
-  /** Input state store (draft reads + subscribe for the send-edge watch). */
-  readonly state: ObservableSnapshot<InputStateSnapshot>
-  /** Insert a serializer-owned native reference; see {@link ReferenceInsert}. */
-  insertReference(ref: ReferenceInsert, span: TokenSpan): boolean
 }

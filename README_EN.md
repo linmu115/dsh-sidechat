@@ -20,16 +20,13 @@ English · [中文](README.md)
 
 ### 🗒️ Selection annotations
 
-Select text in an assistant message and turn "quote + your note" into context for the model:
+Select text in a user or assistant message and turn it into inspectable, annotatable conversation context:
 
-- **Add to conversation**: the selection stays highlighted with a blue numbered badge and an optional-note editor; Codex-style reference cards appear above the composer, reveal the full quote on hover, and can be removed with ×;
-- **Ask in side chat**: after the note editor, the quote + note lands straight in a side chat's composer;
-- Click a badge to reopen the editor (edit/delete); remaining annotations are renumbered to a continuous 1…N after deletion; page-level lifecycle (gone on reload).
-- Quotes use DSH's native reference codec and serialize only when sent, so the visible textarea contains neither an expanded `> quote` block nor the internal blue `@reference` placeholder. Removing a card also removes that quote from the pending model context.
-
-| Selection popover | Annotation editor | Badge + chip |
-|---|---|---|
-| ![selection popover](docs/assets/01-selection-popover.png) | ![annotation editor](docs/assets/02-annotation-editor.png) | ![badge and chip](docs/assets/03-badge-and-chip.png) |
+- **Add to conversation** places a Codex-style annotation bubble above the main composer;
+- **Ask in side chat** first resolves the real forked child session, then adds the same bubble to that side chat;
+- Open a bubble to inspect the full quote and add an optional comment. Before sending, items can be removed and the remaining numbers close to a continuous 1…N;
+- The textarea contains only your question—never expanded `> quote` text, a blue `@`, or a hidden placeholder;
+- After sending, the bubble becomes durable conversation history, and “Annotation N” links in the model answer reopen the referenced item.
 
 ## Install
 
@@ -38,22 +35,17 @@ Select text in an assistant message and turn "quote + your note" into context fo
 | Dependency | Purpose | Status |
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
-| `dsh-annotation-core` | Shared annotation data model, composer bubbles, send binding, model context, and sent-annotation presentation for sidechat and sticker-board | Becomes a hard dependency after the unified-annotation upgrade |
+| `dsh-annotation-core >=0.1.0 <0.2.0` | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
 
-`dsh-annotation-core` is an independently maintained DSH infrastructure plugin; it is not owned by either
-sidechat or sticker-board. The installer must place it at the top level of the official `web` profile and load
-exactly one instance. Sidechat declares only a compatible peer dependency and must not bundle a nested copy.
-If the installed core version is incompatible, installation or upgrade must stop before changing the live
-environment and report the required version.
-
-The current `0.1.0-codex.2` release has not yet adopted `dsh-annotation-core`, so its only prerequisite is
-[dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). Once the unified-annotation upgrade lands,
-the installer or DSH Maintenance Engine will install and enable the matching core automatically; users do not
-manage it separately.
+Install in this order: core → better-sidebar → sidechat. Each package is installed once at the top level of the official `web` profile:
 
 ```bash
+dsh plugin --profile web add dsh-annotation-core
+dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add dsh-sidechat
 ```
+
+DSH Maintenance Engine handles that order automatically. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.
 
 For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (client changes hot-reload; host changes need a `dsh web` restart).
 
@@ -61,7 +53,7 @@ For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (
 
 - **Real fork, no compression**: a side chat is a real DSH session (full-history fork) with the same powers as the main session (tool calls, deeper dives, re-forking) — not a "compress-to-summary one-shot Q&A".
 - **List hygiene**: side sessions are archived out of the session list — the list stays clean.
-- **Accumulating annotation workflow**: multiple selections stack up as multiple annotations — edit, delete, and send them together; not a one-shot single quote.
+- **One annotation workflow**: the main composer and side chat share the same bubbles, numbering, comments, model context, and history presentation.
 
 ## Development
 

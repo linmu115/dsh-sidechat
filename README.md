@@ -20,16 +20,13 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 
 ### 🗒️ 划选注释
 
-在 assistant 消息上划选文本，把「引用 + 你的注解」变成发送给模型的上下文：
+在 user 或 assistant 消息上划选文本，把引用变成可查看、可注解的会话上下文：
 
-- **添加到对话**：选中文本高亮 + 蓝色编号角标 + 注解编辑器（可空注解）；主输入框上方出现 Codex 风格引用卡片，悬停查看完整内容，点击 × 即移除；
-- **在侧边聊天中提问**：注解编辑后引用 + 注解直接进入侧边聊天输入框；
-- 点角标可重开编辑器修改/删除；删除后剩余编号自动顺延为 1…N；页面级生命周期（刷新即失）；
-- 引用使用 DSH 原生 reference codec 在发送瞬间序列化；输入框既不铺开 `> 引用` 明文，也不显示内部的蓝色 `@引用` 占位符；叉掉卡片后，该引用也立即从待发送上下文消失。
-
-| 划选浮层 | 注解编辑器 | 角标 + 注释 chip |
-|---|---|---|
-| ![划选浮层](docs/assets/01-selection-popover.png) | ![注解编辑器](docs/assets/02-annotation-editor.png) | ![角标与注释 chip](docs/assets/03-badge-and-chip.png) |
+- **添加到对话**：引用进入主输入框上方的 Codex 风格注释气泡；
+- **在侧边聊天中提问**：先建立真实侧边会话，再把引用加入该侧聊的同款气泡；
+- 点击气泡可查看完整原文并填写可选注解，发送前可删除；删除后剩余编号自动顺延为 1…N；
+- 输入框始终只显示你输入的问题，不会出现 `> 引用` 明文、蓝色 `@` 或隐藏占位符；
+- 发送后的气泡成为会话历史的一部分，模型回答中的「注释 N」可以点击回看对应内容。
 
 ## 安装
 
@@ -38,20 +35,17 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 | 依赖 | 作用 | 当前状态 |
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 当前版本的硬依赖 |
-| `dsh-annotation-core` | 提供 sidechat 与 sticker-board 共用的注释数据模型、输入框气泡、发送绑定、模型上下文和已发送注释展示 | 统一注释升级完成后成为硬依赖 |
+| `dsh-annotation-core >=0.1.0 <0.2.0` | 提供统一注释气泡、发送上下文和已发送注释展示 | 硬依赖 |
 
-`dsh-annotation-core` 是独立维护的 DSH 基础插件，不归属于 sidechat 或
-sticker-board。安装系统应把它作为官方 `web` profile 的顶层依赖安装并只加载一个实例；
-sidechat 只声明兼容的 peer dependency，不在自己的包内嵌套另一份 core。若已安装的 core
-版本不兼容，安装或升级应在改动运行环境前停止并给出所需版本，而不是带着不匹配的版本启动。
-
-当前 `0.1.0-codex.2` 尚未接入 `dsh-annotation-core`，安装前只需确认
-[dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 已安装。完成统一注释升级后，
-安装器或 DSH Maintenance Engine 将负责自动安装并启用匹配版本的 core，用户无需单独操作。
+请按顺序安装 core → better-sidebar → sidechat；三个包都只需安装到官方 `web` profile 一次：
 
 ```bash
+dsh plugin --profile web add dsh-annotation-core
+dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add dsh-sidechat
 ```
+
+如果通过 DSH Maintenance Engine 部署，依赖顺序会自动处理。core 缺失或版本不兼容时，普通侧边聊天仍可使用，但划选引用入口会停用。
 
 本地开发挂载：`dsh plugin --profile web add link:<本仓库路径>`（client 改动热重载，host 改动需重启 `dsh web`）。
 
@@ -59,7 +53,7 @@ dsh plugin --profile web add dsh-sidechat
 
 - **真 fork，不压缩**：侧边会话是真实 DSH 会话（fork 全量历史），拥有与主会话对等的能力（工具调用、继续深挖、再 fork）；不是「压缩成摘要 + 一次性问答」。
 - **列表卫生**：侧边会话归档隐藏，左侧列表永远干净。
-- **可累积的标注工作流**：多次划选累积多条注释，编辑、删除、随消息一起发出——不是一次性单引文。
+- **统一注释工作流**：主输入框和侧边聊天共用同一套气泡、编号、注解、发送上下文和历史展示。
 
 ## 开发
 

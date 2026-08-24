@@ -64,11 +64,10 @@ describe('parseSideChatMeta', () => {
     expect(parseSideChatMeta(42)).toEqual({})
     expect(parseSideChatMeta([])).toEqual({})
   })
-  it('字段齐全时原样取出', () => {
+  it('只保留会话登记字段，旧草稿或引用内容不得进入 tab meta', () => {
     expect(parseSideChatMeta({ childId: 'c1', parentSessionId: 'p1', pendingDraft: '草稿' })).toEqual({
       childId: 'c1',
       parentSessionId: 'p1',
-      pendingDraft: '草稿',
     })
   })
   it('类型漂移的字段被丢弃，合法字段保留', () => {
