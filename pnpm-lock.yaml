@@ -28,7 +28,7 @@ importers:
         version: 4.0.0-rc.8
       dsh-annotation-core:
         specifier: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz
-        version: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react@18.3.1)
+        version: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lightningcss:
         specifier: ^1.32.0
         version: 1.33.0
@@ -501,7 +501,7 @@ packages:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
   dsh-annotation-core@file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz:
-    resolution: {integrity: sha512-oSnV4x7VaWXHrKE0Zk5A3Gok4u/MFxnj7WPfoqljR0kNMOuIEGd9KrYSbaumIO+tFobCMsICVQowDH9A0J22zw==, tarball: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz}
+    resolution: {integrity: sha512-yu4Dp84GrmHpFVFXGoOlK6B55Nm6HiwNPxIxh5PYjnFdQ9p3DTPAXtDpotFn4qcy0MrkzyMy9saU9tEFky+Ppg==, tarball: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz}
     version: 0.1.0
     engines: {node: '>=20'}
     peerDependencies:
@@ -517,6 +517,7 @@ packages:
       '@deepseek-ai/dsh-system-prompt': 0.1.1-rc.2
       '@deepseek-ai/dsh-typert-protocol': ^0.1.1-rc.2
       react: ^18.2.0
+      react-dom: ^18.2.0
 
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
@@ -1465,10 +1466,11 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
-  dsh-annotation-core@file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react@18.3.1):
+  dsh-annotation-core@file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@deepseek-ai/schemastery': 3.18.1
       react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
       zod: 4.4.3
 
   dts-resolver@3.0.0: {}
