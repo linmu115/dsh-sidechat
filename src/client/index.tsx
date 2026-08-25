@@ -12,7 +12,7 @@ import { attachLocale, type LocaleServiceLike } from './locales.ts'
 import { registerSideChat } from './sidechat/index.tsx'
 import { registerAnnotations } from './annotate/index.tsx'
 
-export const inject = ['betterSidebar', 'sessions', 'workspaces', 'slots', 'connection', 'locale']
+export const inject = ['betterSidebar', 'sessions', 'workspaces', 'connection', 'locale']
 
 export function apply(ctx: Context): void {
   // 跟随 DSH 通用设置里的语言（locale.preference，Host-backed，实时切换）。

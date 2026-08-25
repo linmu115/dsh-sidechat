@@ -8,9 +8,8 @@
 # — appends this single `insert` (one plugin row) to the bundle stack. No
 # manual profile edits.
 #
-# dsh-sidechat requires dsh-better-sidebar as a hard peer dependency: the
-# client half declares `inject = ['betterSidebar', ...]`, so it stays inactive
-# (no UI, no behavior) until better-sidebar provides the service.
+# Install order is dsh-annotation-core -> dsh-better-sidebar -> dsh-sidechat.
+# This patch inserts only sidechat; both dependencies remain top-level peers.
 - insert:
     - id: side-chat
       name: 'dsh-sidechat'

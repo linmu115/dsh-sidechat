@@ -69,7 +69,9 @@ export function registerSideCommand(ctx: Context): void {
         },
         onSelect: (option, session) => {
           if (option.id === 'new') {
-            openOrFocusSideChat(ctx, session.sessionId)
+            void openOrFocusSideChat(ctx, session.sessionId).catch((error) => {
+              console.warn('[dsh-sidechat] /side failed:', error)
+            })
             return
           }
           if (option.id.startsWith('focus:')) {

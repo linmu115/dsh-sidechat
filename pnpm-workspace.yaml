@@ -1,9 +1,13 @@
 packages:
   - .
 
+autoInstallPeers: false
+
 # pnpm 的 strict-dep-builds 护栏放行：node-pty 来自 dsh-better-sidebar（peer，
 # 开发环境会装）；CI（pnpm 11）默认拦截其构建脚本。
 allowBuilds:
+  # Core 的 Git 精确提交需要运行其标准 prepare 构建未入库的 lib/。
+  'dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f': true
   node-pty: true
 
 # vitest 是成熟工具链、发版频繁；其 patch 版本常被 <24h 的 minimumReleaseAge

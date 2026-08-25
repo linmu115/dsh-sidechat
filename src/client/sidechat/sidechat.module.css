@@ -26,6 +26,12 @@
   gap: 12px;
 }
 
+.annotationRow {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0;
+}
+
 /* ── 空状态 / 整屏状态 ── */
 .empty,
 .stateScreen {

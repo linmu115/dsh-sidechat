@@ -1,7 +1,7 @@
 {
   "name": "dsh-sidechat",
-  "version": "0.1.0",
-  "description": "DSH web plugin: Codex-style side chat (fork the current session into a persistent side panel) + selection annotations with numbered badges and a composer chip. A thin consumer of dsh-better-sidebar. / Codex 风格侧边聊天 + 划选注释的 DSH 插件。",
+  "version": "0.2.0",
+  "description": "DSH web plugin: persistent forked side chat plus shared Codex-style annotation bubbles powered by dsh-annotation-core.",
   "type": "module",
   "license": "MIT",
   "main": "lib/index.js",
@@ -48,12 +48,14 @@
     "watch": "tsdown --watch",
     "test": "vitest run",
     "test:mount": "bash scripts/e2e-mount.sh",
+    "test:mount:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-mount.ps1",
     "pretest:mount": "pnpm build && pnpm pack"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
     "cordis": "^4.0.0-rc.7",
-    "dsh-better-sidebar": "^0.12.0",
+    "dsh-annotation-core": ">=0.1.0 <0.2.0",
+    "dsh-better-sidebar": "^0.16.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -68,6 +70,7 @@
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.1",
     "cordis": "^4.0.0-rc.7",
+    "dsh-annotation-core": "github:linmu115/dsh-annotation-core#af1836ce207ee983d1b23a5a03bccd203d46853f",
     "lightningcss": "^1.32.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

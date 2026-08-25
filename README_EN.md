@@ -20,23 +20,32 @@ English · [中文](README.md)
 
 ### 🗒️ Selection annotations
 
-Select text in an assistant message and turn "quote + your note" into context for the model:
+Select text in a user or assistant message and turn it into inspectable, annotatable conversation context:
 
-- **Add to conversation**: the selection stays highlighted with a blue numbered badge, an annotation editor pops up (notes optional); the composer shows an「N 条注释」chip, and all live annotations ride along with your next message;
-- **Ask in side chat**: after the note editor, the quote + note lands straight in a side chat's composer;
-- Click a badge to reopen the editor (edit/delete); numbers follow creation order and are never re-packed on delete; page-level lifecycle (gone on reload).
-
-| Selection popover | Annotation editor | Badge + chip |
-|---|---|---|
-| ![selection popover](docs/assets/01-selection-popover.png) | ![annotation editor](docs/assets/02-annotation-editor.png) | ![badge and chip](docs/assets/03-badge-and-chip.png) |
+- **Add to conversation** places a Codex-style annotation bubble above the main composer;
+- **Ask in side chat** first resolves the real forked child session, then adds the same bubble to that side chat;
+- Open a bubble to inspect the full quote and add an optional comment. Before sending, items can be removed and the remaining numbers close to a continuous 1…N;
+- The textarea contains only your question—never expanded `> quote` text, a blue `@`, or a hidden placeholder;
+- After sending, the bubble becomes durable conversation history, and “Annotation N” links in the model answer reopen the referenced item.
 
 ## Install
 
-Prerequisite: [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) installed (hard peer dependency).
+### Dependencies
+
+| Dependency | Purpose | Status |
+|---|---|---|
+| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
+| [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
+
+Install in this order: core → better-sidebar → sidechat. Each package is installed once at the top level of the official `web` profile:
 
 ```bash
+dsh plugin --profile web add dsh-annotation-core
+dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add dsh-sidechat
 ```
+
+DSH Maintenance Engine handles that order automatically. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.
 
 For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (client changes hot-reload; host changes need a `dsh web` restart).
 
@@ -44,7 +53,7 @@ For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (
 
 - **Real fork, no compression**: a side chat is a real DSH session (full-history fork) with the same powers as the main session (tool calls, deeper dives, re-forking) — not a "compress-to-summary one-shot Q&A".
 - **List hygiene**: side sessions are archived out of the session list — the list stays clean.
-- **Accumulating annotation workflow**: multiple selections stack up as multiple annotations — edit, delete, and send them together; not a one-shot single quote.
+- **One annotation workflow**: the main composer and side chat share the same bubbles, numbering, comments, model context, and history presentation.
 
 ## Development
 

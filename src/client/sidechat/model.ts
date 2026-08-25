@@ -9,6 +9,8 @@
  *   partial/runningCalls 承载在途流式输出（dsh-client-runtime
  *   lib/types/client/sessions/conversation.d.ts）。
  */
+import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { ReactNode } from 'react'
 import type { ConversationSnapshot, Context, SidebarTab } from '../../context-types.ts'
 import { t } from '../locales.ts'
 
@@ -48,8 +50,6 @@ export interface SideChatMeta {
   childId?: string
   /** fork 来源主会话 id（面板归属校验用；面板天然落在其 sidebar 状态里）。 */
   parentSessionId?: string
-  /** 桥接（WI-03 划选提问）写入的待注入草稿；面板应用后清除。 */
-  pendingDraft?: string
 }
 
 /**
@@ -62,14 +62,7 @@ export function parseSideChatMeta(meta: unknown): SideChatMeta {
   const out: SideChatMeta = {}
   if (typeof raw.childId === 'string' && raw.childId !== '') out.childId = raw.childId
   if (typeof raw.parentSessionId === 'string' && raw.parentSessionId !== '') out.parentSessionId = raw.parentSessionId
-  if (typeof raw.pendingDraft === 'string' && raw.pendingDraft !== '') out.pendingDraft = raw.pendingDraft
   return out
-}
-
-/** 清除 meta.pendingDraft（其余字段原样保留）。 */
-export function clearPendingDraft(meta: SideChatMeta): SideChatMeta {
-  const { pendingDraft: _dropped, ...rest } = meta
-  return rest
 }
 
 // ── 侧栏状态树遍历（容错：布局 JSON 漂移时不抛错） ───────────────────────────
@@ -178,6 +171,10 @@ export interface ChatMessage {
   /** 被打断冻结的 assistant 输出（渲染「已停止」标记）。 */
   interrupted?: boolean
 }
+
+export type TranscriptEntry =
+  | { readonly kind: 'message'; readonly key: string; readonly message: ChatMessage }
+  | { readonly kind: 'custom'; readonly key: string; readonly node: ReactNode }
 
 /** 工具结果正文截断上限（面板是窄栏，超长输出不撑爆 DOM）。 */
 export const TOOL_TEXT_LIMIT = 4000
@@ -328,4 +325,26 @@ export function transcriptOf(snapshot: ConversationSnapshot | undefined | null):
     }
   }
   return out
+}
+
+/** Give each durable node to core before the ordinary sidechat projection. */
+export function transcriptEntriesOf(
+  snapshot: ConversationSnapshot | undefined | null,
+  core: Pick<AnnotationCoreClient, 'renderConversationNode'> | undefined,
+  sessionId: string,
+): TranscriptEntry[] {
+  if (snapshot === undefined || snapshot === null) return []
+  const entries: TranscriptEntry[] = []
+  for (const node of snapshot.nodes ?? []) {
+    const projected = core?.renderConversationNode({ sessionId, node, layout: 'narrow' })
+    if (projected !== undefined) {
+      entries.push({ kind: 'custom', key: projected.key, node: projected.node })
+      continue
+    }
+    const message = nodeToMessage(node)
+    if (message !== null) entries.push({ kind: 'message', key: message.key, message })
+  }
+  const ephemeral = transcriptOf({ ...snapshot, nodes: [] } as ConversationSnapshot)
+  for (const message of ephemeral) entries.push({ kind: 'message', key: message.key, message })
+  return entries
 }

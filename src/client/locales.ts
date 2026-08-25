@@ -57,6 +57,7 @@ export const en = {
   sideNoteAria: 'Side chat note',
   confirmAskAria: 'Confirm and ask',
   openSideFailed: "Couldn't open the side chat. Try again.",
+  referenceFailed: "Couldn't add this reference. Try again.",
   deleteNote: 'Delete annotation',
   cancel: 'Cancel',
   save: 'Save',
@@ -66,10 +67,10 @@ export const en = {
   chipMany: '{n} annotations',
   removeTitle: 'Remove annotation',
   removeAria: 'Remove annotation {n}',
+  referenceChip: 'Quote',
+  referenceNumber: 'Quote {n}',
+  referenceCardAria: 'Quote {n}: {text}',
 
-  // model-facing quote format
-  noteLine: 'Note: {note}',
-  noNote: '(no note)',
 }
 
 export type CopyKey = keyof typeof en
@@ -119,6 +120,7 @@ export const zh: Record<CopyKey, string> = {
   sideNoteAria: '侧边聊天注解',
   confirmAskAria: '确认并提问',
   openSideFailed: '打开侧边聊天失败，请重试',
+  referenceFailed: '添加引用失败，请重试',
   deleteNote: '删除注释',
   cancel: '取消',
   save: '保存',
@@ -127,9 +129,10 @@ export const zh: Record<CopyKey, string> = {
   chipMany: '{n} 条注释',
   removeTitle: '移除注释',
   removeAria: '移除注释 {n}',
+  referenceChip: '引用',
+  referenceNumber: '引用 {n}',
+  referenceCardAria: '引用 {n}：{text}',
 
-  noteLine: '注解：{note}',
-  noNote: '（无注解）',
 }
 
 /** The DSH locale service face we consume (subset of LocaleRuntime). */

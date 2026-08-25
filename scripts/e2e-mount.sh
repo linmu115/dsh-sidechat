@@ -3,14 +3,13 @@
 # dsh-sidechat 挂载冒烟编排（仿 dsh-better-sidebar scripts/e2e-mount.sh）：
 #
 #   1. 全新 scratch DSH_HOME（绝不触碰真实 ~/.dsh）+ web profile 模板；
-#   2. 官方 CLI 安装 npm 版 dsh-better-sidebar（本插件的硬依赖）与本插件
-#      tarball（file:<tgz>）；
+#   2. 官方 CLI 按 core -> better-sidebar -> sidechat 安装三个包；
 #   3. 伪造一个含已完成 turn 的会话 jsonl（scripts/seed-session.mjs），
 #      使 fork 路径无需模型凭证即可验证；
 #   4. 启动真实 `dsh web --port 0`（keyless），Playwright 无头渲染断言。
 #
 # 用法：bash scripts/e2e-mount.sh [--grep <playwright-filter>]
-# 环境变量：DSH_CMD / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME（同上游脚本）。
+# 环境变量：DSH_CMD / CORE_TARBALL / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME。
 # =============================================================================
 set -euo pipefail
 
@@ -20,6 +19,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DSH_CMD="${DSH_CMD:-dsh}"
 PORT="${PORT:-0}"
 TARBALL="${TARBALL:-}"
+CORE_TARBALL="${CORE_TARBALL:-}"
 GREP_FILTER=""
 if [ "${1:-}" = "--grep" ]; then GREP_FILTER="${2:?--grep 需要参数}"; fi
 
@@ -45,6 +45,13 @@ fi
 [ -n "$TARBALL" ] && [ -f "$TARBALL" ] || die "找不到 tarball——先运行 pnpm build && pnpm pack"
 TARBALL="$(cd "$(dirname "$TARBALL")" && pwd)/$(basename "$TARBALL")"
 say "tarball: $TARBALL"
+
+if [ -z "$CORE_TARBALL" ]; then
+  CORE_TARBALL="$(ls "$ROOT"/dsh-annotation-core-*.tgz "$ROOT"/../dsh-annotation-core/dsh-annotation-core-*.tgz 2>/dev/null | head -1 || true)"
+fi
+[ -n "$CORE_TARBALL" ] && [ -f "$CORE_TARBALL" ] || die "找不到 dsh-annotation-core tarball——设置 CORE_TARBALL"
+CORE_TARBALL="$(cd "$(dirname "$CORE_TARBALL")" && pwd)/$(basename "$CORE_TARBALL")"
+say "core tarball: $CORE_TARBALL"
 
 SCRATCH="${DSH_HOME_BASE:-$(mktemp -d /tmp/dsh-sidechat-e2e.XXXXXX)}"
 export DSH_HOME="$SCRATCH/home"
@@ -96,13 +103,16 @@ allowBuilds:
   protobufjs: true
 
 minimumReleaseAgeExclude:
+  - dsh-annotation-core
   - dsh-better-sidebar
   - dsh-sidechat
 EOF
 
-# 步骤 2：先装硬依赖 better-sidebar（版本钉住：缺省 0.12.3 = 线上 profile 同版；
-# BS_VERSION 覆盖可做前向兼容验证，如 BS_VERSION=0.13.0）
-BS_VERSION="${BS_VERSION:-0.12.3}"
+# 步骤 2：按依赖顺序安装。better-sidebar 缺省使用官方 web profile
+# 当前验证版本 0.16.0；BS_VERSION 可覆盖以做前向兼容验证。
+BS_VERSION="${BS_VERSION:-0.16.0}"
+say "安装 dsh-annotation-core..."
+$DSH_CMD plugin --profile web add "file:$CORE_TARBALL"
 say "安装 dsh-better-sidebar@${BS_VERSION}..."
 $DSH_CMD plugin --profile web add "dsh-better-sidebar@${BS_VERSION}"
 say "安装本插件 tarball..."
@@ -112,10 +122,10 @@ node -e '
   const fs = require("fs");
   const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const bundles = p.dsh?.profile?.bundles ?? [];
-  const missing = ["dsh-better-sidebar", "dsh-sidechat"].filter((b) => !bundles.includes(b));
+  const missing = ["dsh-annotation-core", "dsh-better-sidebar", "dsh-sidechat"].filter((b) => !bundles.includes(b));
   if (missing.length) { console.error("挂载未注册:", missing.join(", ")); process.exit(1); }
 ' "$PROFILE_DIR/package.json"
-say "挂载已注册：dsh-better-sidebar + dsh-sidechat"
+say "挂载已注册：dsh-annotation-core + dsh-better-sidebar + dsh-sidechat"
 
 # 步骤 3：伪造含已完成 turn 的会话（fork 路径无需模型凭证）
 SEED_SESSION_ID="$(node "$SCRIPT_DIR/seed-session.mjs" "$DSH_HOME" "$WORKSPACE_DIR")"
