@@ -27,8 +27,8 @@ importers:
         specifier: ^4.0.0-rc.7
         version: 4.0.0-rc.8
       dsh-annotation-core:
-        specifier: github:linmu115/dsh-annotation-core#af1836ce207ee983d1b23a5a03bccd203d46853f
-        version: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/99616f128d7beb175b023714ed906e976ac6f827
+        version: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/99616f128d7beb175b023714ed906e976ac6f827(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lightningcss:
         specifier: ^1.32.0
         version: 1.33.0
@@ -40,10 +40,13 @@ importers:
         version: 18.3.1(react@18.3.1)
       tsdown:
         specifier: ^0.22.2
-        version: 0.22.14(typescript@5.9.3)
+        version: 0.22.14(typescript@5.9.3)(unrun@0.3.1)
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
+      unrun:
+        specifier: ^0.3.1
+        version: 0.3.1
       vitest:
         specifier: ^4.1.8
         version: 4.1.11(@types/node@24.13.3)
@@ -500,9 +503,9 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
-  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f:
-    resolution: {gitHosted: true, integrity: sha512-o6vgix01qYmzFHbnlT1wSDOQyAcO+ae94Gek2H0Z1TtXxoishXG9Apu4AQ9M4tWOI34kqB9N4XsyPFsI77V+pA==, tarball: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f}
-    version: 0.1.0
+  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/99616f128d7beb175b023714ed906e976ac6f827:
+    resolution: {gitHosted: true, integrity: sha512-Mx9QT5ee1qT/eFfYFDWXordYsTcMeLhzJ7FPXA1QbEFh9PsTDisb38+y6zNnraA1KKH88yvdNuVavgAQ/7IdpA==, tarball: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/99616f128d7beb175b023714ed906e976ac6f827}
+    version: 0.1.1
     engines: {node: '>=20'}
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.1
@@ -1009,6 +1012,16 @@ packages:
   unist-util-visit@5.1.0:
     resolution: {integrity: sha512-m+vIdyeCOpdr/QeQCu2EzxX/ohgS8KbnPDgFni4dQsfSCtpz8UqDyY5GjRru8PDKuYn7Fq19j1CQ+nJSsGKOzg==}
 
+  unrun@0.3.1:
+    resolution: {integrity: sha512-onIck/oNnCaytwths1ZVp1LK2Gq2hPoyFhiHebObuUXqR3S0uHuLLaBK8K6mRRgV7Ptip8AnNvaUsgzwWwBZuA==}
+    engines: {node: ^22.13.0 || >=24.0.0}
+    hasBin: true
+    peerDependencies:
+      synckit: ^0.11.11
+    peerDependenciesMeta:
+      synckit:
+        optional: true
+
   verkit@0.3.2:
     resolution: {integrity: sha512-zj/ob3UsvJGN0whEAKFp53REA5X66hvffVqoCtVQAakJKnKlH+/PcOfMoFwIG/o4rElqLv/ycAFlx8ZlXUorCg==}
     engines: {node: '>=18.12.0'}
@@ -1466,7 +1479,7 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
-  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/99616f128d7beb175b023714ed906e976ac6f827(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@deepseek-ai/schemastery': 3.18.1
       react: 18.3.1
@@ -2058,7 +2071,7 @@ snapshots:
 
   trim-lines@3.0.1: {}
 
-  tsdown@0.22.14(typescript@5.9.3):
+  tsdown@0.22.14(typescript@5.9.3)(unrun@0.3.1):
     dependencies:
       ansis: 4.3.1
       cac: 7.0.0
@@ -2077,6 +2090,7 @@ snapshots:
       verkit: 0.3.2
     optionalDependencies:
       typescript: 5.9.3
+      unrun: 0.3.1
     transitivePeerDependencies:
       - '@typescript/native-preview'
       - '@volar/typescript'
@@ -2119,6 +2133,10 @@ snapshots:
       '@types/unist': 3.0.3
       unist-util-is: 6.0.1
       unist-util-visit-parents: 6.0.2
+
+  unrun@0.3.1:
+    dependencies:
+      rolldown: 1.2.4
 
   verkit@0.3.2: {}
 

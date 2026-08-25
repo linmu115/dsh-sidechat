@@ -21,8 +21,35 @@ if (-not $DshCommand) {
   }
 }
 if ($CoreMode -ne "missing" -and -not $CoreTarball) {
-  $CoreTarball = Get-ChildItem -LiteralPath (Join-Path (Split-Path -Parent $repoRoot) "dsh-annotation-core") -Filter "dsh-annotation-core-*.tgz" |
-    Select-Object -First 1 -ExpandProperty FullName
+  $coreRepo = Join-Path (Split-Path -Parent $repoRoot) "dsh-annotation-core"
+  if (Test-Path -LiteralPath $coreRepo -PathType Container) {
+    $CoreTarball = Get-ChildItem -LiteralPath $coreRepo -Filter "dsh-annotation-core-*.tgz" |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+}
+if ($CoreMode -ne "missing" -and -not $CoreTarball) {
+  $corePackageJson = (& node -p "require.resolve('dsh-annotation-core/package.json')" | Select-Object -Last 1).Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $corePackageJson) { throw "Installed dsh-annotation-core package not found" }
+  $corePackageRoot = Split-Path -Parent $corePackageJson
+  $coreVersion = (Get-Content -Raw -LiteralPath $corePackageJson | ConvertFrom-Json).version
+  $corePackTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+  $corePackRoot = Join-Path $corePackTempRoot ("dsh-sidechat-core-pack-" + [Guid]::NewGuid().ToString("N"))
+  $corePackPackage = Join-Path $corePackRoot "package"
+  New-Item -ItemType Directory -Path $corePackPackage | Out-Null
+  try {
+    foreach ($file in @("package.json", "LICENSE", "README.md", "README_EN.md", "cordis.patch.yml")) {
+      Copy-Item -LiteralPath (Join-Path $corePackageRoot $file) -Destination $corePackPackage
+    }
+    Copy-Item -LiteralPath (Join-Path $corePackageRoot "lib") -Destination $corePackPackage -Recurse
+    $CoreTarball = Join-Path $repoRoot "dsh-annotation-core-$coreVersion.tgz"
+    & tar.exe -czf $CoreTarball -C $corePackRoot package
+    if ($LASTEXITCODE -ne 0) { throw "Packing installed dsh-annotation-core failed" }
+  } finally {
+    $resolvedCorePackRoot = [IO.Path]::GetFullPath($corePackRoot)
+    if ($resolvedCorePackRoot.StartsWith($corePackTempRoot, [StringComparison]::OrdinalIgnoreCase)) {
+      Remove-Item -LiteralPath $resolvedCorePackRoot -Recurse -Force
+    }
+  }
 }
 if (-not $SidechatTarball) {
   $SidechatTarball = Get-ChildItem -LiteralPath $repoRoot -Filter "dsh-sidechat-*.tgz" |

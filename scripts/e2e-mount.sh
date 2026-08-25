@@ -49,6 +49,14 @@ say "tarball: $TARBALL"
 if [ -z "$CORE_TARBALL" ]; then
   CORE_TARBALL="$(ls "$ROOT"/dsh-annotation-core-*.tgz "$ROOT"/../dsh-annotation-core/dsh-annotation-core-*.tgz 2>/dev/null | head -1 || true)"
 fi
+if [ -z "$CORE_TARBALL" ]; then
+  CORE_PACKAGE_ROOT="$(node -e 'const path = require("node:path"); console.log(path.dirname(require.resolve("dsh-annotation-core/package.json")))')"
+  say "从已锁定的公开依赖生成 core tarball..."
+  CORE_VERSION="$(node -e 'console.log(require(process.argv[1]).version)' "$CORE_PACKAGE_ROOT/package.json")"
+  CORE_TARBALL="$ROOT/dsh-annotation-core-$CORE_VERSION.tgz"
+  tar -czf "$CORE_TARBALL" --transform='s,^,package/,' -C "$CORE_PACKAGE_ROOT" \
+    package.json LICENSE README.md README_EN.md cordis.patch.yml lib
+fi
 [ -n "$CORE_TARBALL" ] && [ -f "$CORE_TARBALL" ] || die "找不到 dsh-annotation-core tarball——设置 CORE_TARBALL"
 CORE_TARBALL="$(cd "$(dirname "$CORE_TARBALL")" && pwd)/$(basename "$CORE_TARBALL")"
 say "core tarball: $CORE_TARBALL"

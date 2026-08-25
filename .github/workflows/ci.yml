@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.19.0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -33,6 +33,8 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Verify package contents
+        run: pnpm pack --dry-run --json
 
   # Pack the plugin as an npm tarball, mount it into a REAL DSH instance
   # through the official `dsh plugin --profile web add` channel (together with
@@ -49,7 +51,7 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.19.0
 
       - uses: actions/setup-node@v7
         with:

@@ -10,7 +10,7 @@ name: Release
 #   1. package `dsh-sidechat` -> Settings -> Publishing access
 #      -> Trusted Publishers -> "Add Trusted Publisher".
 #   2. Provider: GitHub Actions
-#      Organization or user: g-yixuan
+#      Organization or user: linmu115
 #      Repository:           dsh-sidechat
 #      Workflow filename:    release.yml
 #      Environment:          (blank)
@@ -25,7 +25,7 @@ on:
       dry_run:
         description: Pack and verify everything, but do not publish
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -47,7 +47,7 @@ jobs:
 
       - uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.19.0
 
       - uses: actions/setup-node@v7
         with:
@@ -95,5 +95,5 @@ jobs:
           fi
 
       - name: Publish to npm
-        if: (github.event_name == 'release' || github.event.inputs.dry_run != 'true') && steps.published.outputs.exists != 'true'
+        if: github.event_name == 'release' && steps.published.outputs.exists != 'true'
         run: pnpm publish --provenance --access public --no-git-checks
