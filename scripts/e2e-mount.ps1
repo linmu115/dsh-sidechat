@@ -21,8 +21,19 @@ if (-not $DshCommand) {
   }
 }
 if ($CoreMode -ne "missing" -and -not $CoreTarball) {
-  $CoreTarball = Get-ChildItem -LiteralPath (Join-Path (Split-Path -Parent $repoRoot) "dsh-annotation-core") -Filter "dsh-annotation-core-*.tgz" |
-    Select-Object -First 1 -ExpandProperty FullName
+  $coreRepo = Join-Path (Split-Path -Parent $repoRoot) "dsh-annotation-core"
+  if (Test-Path -LiteralPath $coreRepo -PathType Container) {
+    $CoreTarball = Get-ChildItem -LiteralPath $coreRepo -Filter "dsh-annotation-core-*.tgz" |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+}
+if ($CoreMode -ne "missing" -and -not $CoreTarball) {
+  $corePackageJson = (& node -p "require.resolve('dsh-annotation-core/package.json')" | Select-Object -Last 1).Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $corePackageJson) { throw "Installed dsh-annotation-core package not found" }
+  $corePackageRoot = Split-Path -Parent $corePackageJson
+  $coreTarballName = (& npm pack $corePackageRoot --ignore-scripts --pack-destination $repoRoot --silent | Select-Object -Last 1).Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $coreTarballName) { throw "Packing installed dsh-annotation-core failed" }
+  $CoreTarball = Join-Path $repoRoot $coreTarballName
 }
 if (-not $SidechatTarball) {
   $SidechatTarball = Get-ChildItem -LiteralPath $repoRoot -Filter "dsh-sidechat-*.tgz" |
