@@ -27,8 +27,8 @@ importers:
         specifier: ^4.0.0-rc.7
         version: 4.0.0-rc.8
       dsh-annotation-core:
-        specifier: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz
-        version: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: github:linmu115/dsh-annotation-core#af1836ce207ee983d1b23a5a03bccd203d46853f
+        version: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lightningcss:
         specifier: ^1.32.0
         version: 1.33.0
@@ -500,8 +500,8 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
-  dsh-annotation-core@file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz:
-    resolution: {integrity: sha512-yu4Dp84GrmHpFVFXGoOlK6B55Nm6HiwNPxIxh5PYjnFdQ9p3DTPAXtDpotFn4qcy0MrkzyMy9saU9tEFky+Ppg==, tarball: file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz}
+  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f:
+    resolution: {gitHosted: true, integrity: sha512-o6vgix01qYmzFHbnlT1wSDOQyAcO+ae94Gek2H0Z1TtXxoishXG9Apu4AQ9M4tWOI34kqB9N4XsyPFsI77V+pA==, tarball: https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f}
     version: 0.1.0
     engines: {node: '>=20'}
     peerDependencies:
@@ -1466,7 +1466,7 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
-  dsh-annotation-core@file:../dsh-annotation-core/dsh-annotation-core-0.1.0.tgz(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  dsh-annotation-core@https://codeload.github.com/linmu115/dsh-annotation-core/tar.gz/af1836ce207ee983d1b23a5a03bccd203d46853f(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@deepseek-ai/schemastery': 3.18.1
       react: 18.3.1

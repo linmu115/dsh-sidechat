@@ -35,7 +35,7 @@ Select text in a user or assistant message and turn it into inspectable, annotat
 | Dependency | Purpose | Status |
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
-| `dsh-annotation-core >=0.1.0 <0.2.0` | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
+| [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
 
 Install in this order: core → better-sidebar → sidechat. Each package is installed once at the top level of the official `web` profile:
 
