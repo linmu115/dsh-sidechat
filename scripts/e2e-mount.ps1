@@ -52,7 +52,7 @@ if ($CoreMode -ne "missing" -and -not $CoreTarball) {
   }
 }
 if (-not $SidechatTarball) {
-  $SidechatTarball = Get-ChildItem -LiteralPath $repoRoot -Filter "dsh-sidechat-*.tgz" |
+  $SidechatTarball = Get-ChildItem -LiteralPath $repoRoot -Filter "*dsh-sidechat-*.tgz" |
     Select-Object -First 1 -ExpandProperty FullName
 }
 if (-not (Test-Path -LiteralPath $DshCommand -PathType Leaf)) { throw "DSH command not found: $DshCommand" }
@@ -97,7 +97,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - dsh-annotation-core
   - dsh-better-sidebar
-  - dsh-sidechat
+  - '@evylynn/dsh-sidechat'
 "@
 
   if ($CoreMode -ne "missing") {

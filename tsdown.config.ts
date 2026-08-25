@@ -182,5 +182,5 @@ export default [
     dts: false,
     clean: false,
   },
-  clientBundle('dsh-sidechat', 'client.js'),
+  clientBundle('@evylynn/dsh-sidechat', 'client.js'),
 ] satisfies UserConfig[]

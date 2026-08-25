@@ -1,5 +1,5 @@
 {
-  "name": "dsh-sidechat",
+  "name": "@evylynn/dsh-sidechat",
   "version": "0.2.0",
   "private": false,
   "description": "DSH web plugin: persistent forked side chat plus shared Codex-style annotation bubbles powered by dsh-annotation-core.",

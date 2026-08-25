@@ -42,7 +42,7 @@ Install in this order: core → better-sidebar → sidechat. Each package is ins
 ```bash
 dsh plugin --profile web add dsh-annotation-core
 dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-sidechat
+dsh plugin --profile web add @evylynn/dsh-sidechat
 ```
 
 DSH Maintenance Engine handles that order automatically. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.

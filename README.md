@@ -42,7 +42,7 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 ```bash
 dsh plugin --profile web add dsh-annotation-core
 dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-sidechat
+dsh plugin --profile web add @evylynn/dsh-sidechat
 ```
 
 如果通过 DSH Maintenance Engine 部署，依赖顺序会自动处理。core 缺失或版本不兼容时，普通侧边聊天仍可使用，但划选引用入口会停用。
