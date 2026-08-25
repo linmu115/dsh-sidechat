@@ -9,11 +9,11 @@
   {
     id: 'dsh-sidechat',
     name: 'dsh-sidechat 侧边聊天',
-    url: 'https://github.com/g-yixuan/dsh-sidechat',
+    url: 'https://github.com/linmu115/dsh-sidechat',
     description: () => t('pluginSideChatDesc'),
     // dsh-sidechat hard-depends on dsh-better-sidebar (required peer), so
     // the install line installs the prerequisite first, then the plugin.
-    install: 'cd ~/.dsh && dsh plugin --profile web add dsh-better-sidebar && dsh plugin --profile web add dsh-sidechat@latest',
+    install: 'cd ~/.dsh && dsh plugin --profile web add dsh-better-sidebar && dsh plugin --profile web add @evylynn/dsh-sidechat@latest',
   },
 ```
 
@@ -37,9 +37,9 @@
 ```markdown
 收录一个新 Tab 插件：**dsh-sidechat**（Codex 风格侧边聊天 + 划选注释）。
 
-- 仓库：https://github.com/g-yixuan/dsh-sidechat （已打 `dsh-plugin` / `dsh-better-sidebar` topic）
+- 仓库：https://github.com/linmu115/dsh-sidechat （已打 `dsh-plugin` / `dsh-better-sidebar` topic）
 - 接入方式：消费 `ctx.betterSidebar`（`registerTab`，`inject = ['betterSidebar', ...]`），遵循 docs/external-plugin-guide.md
-- npm：https://www.npmjs.com/package/dsh-sidechat
+- npm：https://www.npmjs.com/package/@evylynn/dsh-sidechat
 - 条目：plugins-tabs.ts 按字母序插入 + locales.ts 双语 pluginSideChatDesc
 - 实测：`dsh plugin --profile web add dsh-better-sidebar@0.12.3` + 本插件在真实 DSH 挂载，Playwright 七条 journey lane 全绿（0.12.3 与 0.13.0 双版本）
 ```

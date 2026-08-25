@@ -40,7 +40,7 @@ if ! command -v "$DSH_CMD" >/dev/null 2>&1; then
 fi
 
 if [ -z "$TARBALL" ]; then
-  TARBALL="$(ls "$ROOT"/dsh-sidechat-*.tgz 2>/dev/null | head -1 || true)"
+  TARBALL="$(ls "$ROOT"/*dsh-sidechat-*.tgz 2>/dev/null | head -1 || true)"
 fi
 [ -n "$TARBALL" ] && [ -f "$TARBALL" ] || die "找不到 tarball——先运行 pnpm build && pnpm pack"
 TARBALL="$(cd "$(dirname "$TARBALL")" && pwd)/$(basename "$TARBALL")"
@@ -113,7 +113,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - dsh-annotation-core
   - dsh-better-sidebar
-  - dsh-sidechat
+  - '@evylynn/dsh-sidechat'
 EOF
 
 # 步骤 2：按依赖顺序安装。better-sidebar 缺省使用官方 web profile
@@ -130,7 +130,7 @@ node -e '
   const fs = require("fs");
   const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const bundles = p.dsh?.profile?.bundles ?? [];
-  const missing = ["dsh-annotation-core", "dsh-better-sidebar", "dsh-sidechat"].filter((b) => !bundles.includes(b));
+  const missing = ["dsh-annotation-core", "dsh-better-sidebar", "@evylynn/dsh-sidechat"].filter((b) => !bundles.includes(b));
   if (missing.length) { console.error("挂载未注册:", missing.join(", ")); process.exit(1); }
 ' "$PROFILE_DIR/package.json"
 say "挂载已注册：dsh-annotation-core + dsh-better-sidebar + dsh-sidechat"

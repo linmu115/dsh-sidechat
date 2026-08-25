@@ -20,7 +20,7 @@ dsh-sidechat 为 DeepSeek Harness 提供可持久恢复的侧边会话，并把�
 ```bash
 dsh plugin --profile web add dsh-annotation-core
 dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-sidechat
+dsh plugin --profile web add @evylynn/dsh-sidechat
 ```
 
 DSH Maintenance Engine 可自动处理依赖顺序。core 缺失或不兼容时，普通侧聊仍可用，只有划选引用入口停用。

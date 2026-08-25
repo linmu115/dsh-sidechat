@@ -3,7 +3,7 @@
 # `dsh.bundle.patch` layer of the published package: installing through the
 # official CLI —
 #
-#   dsh plugin --profile <name> add dsh-sidechat
+#   dsh plugin --profile <name> add @evylynn/dsh-sidechat
 #
 # — appends this single `insert` (one plugin row) to the bundle stack. No
 # manual profile edits.
@@ -12,4 +12,5 @@
 # This patch inserts only sidechat; both dependencies remain top-level peers.
 - insert:
     - id: side-chat
-      name: 'dsh-sidechat'
+      # Node-resolvable package name; must match package.json `name`.
+      name: '@evylynn/dsh-sidechat'
