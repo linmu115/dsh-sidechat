@@ -2,9 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { ModelRouteHub } from './model-settings.ts'
 import { isTrustedApiRequest } from './trust-fence.ts'
-
-export const MODEL_ROUTE_SNAPSHOT_PATH = '/plugins/dsh-sidechat/model-route'
-export const MODEL_ROUTE_EVENTS_PATH = '/plugins/dsh-sidechat/model-route/events'
+export { MODEL_ROUTE_EVENTS_PATH, MODEL_ROUTE_SNAPSHOT_PATH } from '../model-route.ts'
 
 interface ModelRouteHttpOptions {
   keepAliveMs?: number

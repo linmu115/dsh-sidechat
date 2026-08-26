@@ -1,4 +1,7 @@
 /** A concrete DSH model selection. `null` is the explicit inherit route. */
+export const MODEL_ROUTE_SNAPSHOT_PATH = '/plugins/dsh-sidechat/model-route'
+export const MODEL_ROUTE_EVENTS_PATH = '/plugins/dsh-sidechat/model-route/events'
+
 export interface ModelRoute {
   provider: string
   model: string
