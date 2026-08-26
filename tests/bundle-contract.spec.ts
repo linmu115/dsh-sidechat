@@ -13,6 +13,36 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
+  it('ships the live Manager model-select contract in the 0.3.0 package', () => {
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+      version: string
+      files: string[]
+      peerDependencies: Record<string, string>
+    }
+    expect(packageJson.version).toBe('0.3.0')
+    expect(packageJson.files).toContain('dsh-management')
+    expect(packageJson.files).toContain('docs/changes')
+    expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('^0.1.1-rc.2')
+    expect(packageJson.peerDependencies['@deepseek-ai/dsh-host-webserver']).toBe('^0.1.1-rc.2')
+
+    const panel = readFileSync(join(process.cwd(), 'dsh-management', 'panel.yaml'), 'utf8')
+    for (const contract of [
+      'contractVersion: 2',
+      'type: model-select',
+      'default: null',
+      'allowInherit: true',
+      'apply: save',
+      'kind: dsh-settings',
+      'namespace: dsh-sidechat',
+      'key: defaultModelRoute',
+      'actions: []',
+    ]) expect(panel).toContain(contract)
+    expect(panel).not.toContain('restart-required')
+
+    const patch = readFileSync(join(process.cwd(), 'cordis.patch.yml'), 'utf8')
+    expect(patch).toContain('defaultModelRoute: null')
+  })
+
   it('declares the official web profile dependency versions', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       peerDependencies: Record<string, string>

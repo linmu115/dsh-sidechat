@@ -14,3 +14,6 @@
     - id: side-chat
       # Node-resolvable package name; must match package.json `name`.
       name: '@evylynn/dsh-sidechat'
+      config:
+        # Composition base. null means each child follows its own parent.
+        defaultModelRoute: null

@@ -13,7 +13,8 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 - 右侧栏 `+` 菜单 →「侧边聊天」，或斜杠命令 `/side`；
 - fork 时刻带主会话完整上下文，之后两个会话各自独立演进；
 - 多实例并存（「侧边」「侧边 2」…），各自独立关闭；
-- 模型跟随主会话当前选择（fork 时同步）；
+- 模型可在 Manager 参数页从 DSH 当前模型目录选择，也可设为“跟随主会话”；
+- 模型设置热载入：保存后所有已打开侧聊立即切换，正在生成的回答不中断，下一次提问使用新模型；
 - 持久化：刷新/重启后随布局恢复；不进左侧会话列表（归档隐藏）；仅手动关闭 Tab 从界面消失。
 
 ![侧边聊天面板](docs/assets/04-side-chat-panel.png)
@@ -36,6 +37,7 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 当前版本的硬依赖 |
 | [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | 提供统一注释气泡、发送上下文和已发送注释展示 | 硬依赖 |
+| `dsh-resource-management` | 在 Manager 参数页提供 DSH 模型目录选择器 | 可选，推荐安装 |
 
 请按顺序安装 core → better-sidebar → sidechat；三个包都只需安装到官方 `web` profile 一次：
 
@@ -48,6 +50,16 @@ dsh plugin --profile web add @evylynn/dsh-sidechat
 如果通过 DSH Maintenance Engine 部署，依赖顺序会自动处理。core 缺失或版本不兼容时，普通侧边聊天仍可使用，但划选引用入口会停用。
 
 本地开发挂载：`dsh plugin --profile web add link:<本仓库路径>`（client 改动热重载，host 改动需重启 `dsh web`）。
+
+## 模型配置
+
+打开 Manager → 插件 → `@evylynn/dsh-sidechat` → 参数信息，在“侧边会话模型”中选择一个已登记模型，或选择“跟随主会话”，然后点击 Manager 的标准保存按钮。
+
+- 保存本身是热载入，不需要刷新页面或重启 DSH；
+- 当前页面里已打开的侧栏 tab 和自由浮窗都会立即切换；
+- 选择“跟随主会话”时，每个 Sidechat 分别读取自己的主会话当前模型；
+- 正在生成的回答不会被取消；切换结束后，下一次模型请求使用新设置；
+- 未挂载的持久布局在恢复时对齐；显式关闭后仅存于归档的会话不会在后台被修改。
 
 ## 设计要点
 

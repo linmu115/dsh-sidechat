@@ -13,7 +13,8 @@ English · [中文](README.md)
 - Open from the sidebar `+` menu →「侧边聊天」, or the `/side` slash command;
 - The fork carries the full main-session context at fork time; afterwards the two sessions evolve independently;
 - Multiple side chats coexist («侧边», «侧边 2», …), each closable on its own;
-- The model follows the main session's current selection (synced at fork);
+- Choose a model from the current DSH model catalog in Manager, or select “follow main session”;
+- Model settings are live: saving switches every open side chat without interrupting an in-progress reply, and the next prompt uses the new model;
 - Persistent: restored with the layout across reloads/restarts; hidden from the session list (archived); only closing the tab removes it from the UI.
 
 ![Side chat panel](docs/assets/04-side-chat-panel.png)
@@ -36,6 +37,7 @@ Select text in a user or assistant message and turn it into inspectable, annotat
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
 | [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
+| `dsh-resource-management` | DSH model-catalog selector on the Manager parameter page | Optional, recommended |
 
 Install in this order: core → better-sidebar → sidechat. Each package is installed once at the top level of the official `web` profile:
 
@@ -48,6 +50,16 @@ dsh plugin --profile web add @evylynn/dsh-sidechat
 DSH Maintenance Engine handles that order automatically. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.
 
 For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (client changes hot-reload; host changes need a `dsh web` restart).
+
+## Model configuration
+
+Open Manager → Plugins → `@evylynn/dsh-sidechat` → Parameters. In “Sidechat model,” choose a registered DSH model or “follow main session,” then use Manager's standard Save button.
+
+- Saving is live; it does not require a page refresh or DSH restart.
+- Every open sidebar tab and floating Sidechat window switches immediately.
+- “Follow main session” resolves each Sidechat against its own parent session.
+- An in-progress answer is not cancelled; the new route applies to the next model request.
+- A persisted but unmounted layout aligns when restored. Explicitly closed, archive-only sessions are not changed in the background.
 
 ## Design notes
 

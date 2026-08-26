@@ -1,0 +1,21 @@
+contractVersion: 2
+
+sections:
+  - id: sidechat-model
+    title: 侧边会话模型
+    description: 保存后立即切换当前页面所有已打开的侧边会话；正在生成的回答继续完成，下一次模型请求使用新设置
+    fields:
+      - id: default-model-route
+        type: model-select
+        label: 默认侧边会话模型
+        description: 跟随主会话时，每个侧边会话使用其所属主会话的当前模型；固定模型从 DSH 当前模型目录选择
+        default: null
+        allowInherit: true
+        inheritLabel: 跟随主会话
+        apply: save
+        binding:
+          kind: dsh-settings
+          namespace: dsh-sidechat
+          key: defaultModelRoute
+
+actions: []
