@@ -91,7 +91,10 @@
     "pretest:mount": "pnpm build && pnpm pack"
   },
   "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.1",
     "cordis": "^4.0.0-rc.7",
     "dsh-annotation-core": ">=0.1.0 <0.2.0",
     "dsh-better-sidebar": "^0.16.0",
@@ -99,12 +102,24 @@
     "react-dom": "^18.2.0"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-settings": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
     "cordis": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "0.1.1-rc.2",
+    "@deepseek-ai/schemastery": "3.18.1",
     "@types/node": "^24.0.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.1",
