@@ -14,22 +14,6 @@ async function bestEffortArchive(ctx: Context, sessionId: string): Promise<void>
   }
 }
 
-async function bestEffortModelSync(ctx: Context, parentSessionId: string, childSessionId: string): Promise<void> {
-  try {
-    const parent = await ctx.connection.api.sessions.models({ sessionId: parentSessionId })
-    if (!parent.result.ok) return
-    const model = parent.result.value.current
-    await ctx.connection.api.sessions.selectModel({
-      sessionId: childSessionId,
-      provider: model.provider,
-      model: model.model,
-      ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
-    })
-  } catch (error) {
-    console.warn('[dsh-sidechat] failed to synchronize side-session model:', error)
-  }
-}
-
 /** Fork and register one durable child session, deduplicated per sidebar tab. */
 export function ensureSideChatSession(ctx: Context, tabId: string, parentSessionId: string): Promise<string> {
   const registered = parseSideChatMeta(readSideChatTab(ctx, tabId)?.meta).childId
@@ -49,10 +33,7 @@ export function ensureSideChatSession(ctx: Context, tabId: string, parentSession
     ctx.betterSidebar.updateTab(tabId, {
       meta: { ...latest, childId, parentSessionId },
     })
-    await Promise.all([
-      bestEffortArchive(ctx, childId),
-      bestEffortModelSync(ctx, parentSessionId, childId),
-    ])
+    await bestEffortArchive(ctx, childId)
     return childId
   })().finally(() => {
     if (pendingByTab.get(tabId) === operation) pendingByTab.delete(tabId)
