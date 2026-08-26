@@ -15,6 +15,11 @@ import {
   type TranscriptEntry,
 } from './model.ts'
 import { ensureSideChatSession } from './session-controller.ts'
+import {
+  type ChildModelPhase,
+  type SidechatModelCoordinator,
+} from './model-coordinator.ts'
+import { canSubmitWithModel, isComposerSubmitKey } from './model-submit-gate.ts'
 import css from './sidechat.module.css'
 
 const NOOP_UNSUBSCRIBE = (): void => {}
@@ -26,10 +31,15 @@ function openSessionWindow(session: SessionFace | undefined): void {
   openable.open().catch(error => { console.warn('[dsh-sidechat] failed to open session window:', error) })
 }
 
-export function SideChatPanel(props: TabComponentProps & { annotationCore: AnnotationCoreAvailability }) {
+export function SideChatPanel(props: TabComponentProps & {
+  annotationCore: AnnotationCoreAvailability
+  modelCoordinator: SidechatModelCoordinator
+}) {
   useLocaleTick()
   const { ctx, scope, tab, visible, store } = props
-  const registeredChildId = parseSideChatMeta(tab.meta).childId
+  const tabMeta = parseSideChatMeta(tab.meta)
+  const registeredChildId = tabMeta.childId
+  const parentSessionId = tabMeta.parentSessionId ?? scope.sessionId
   const [provisionedChildId, setProvisionedChildId] = useState<string | undefined>(registeredChildId)
   const [forkError, setForkError] = useState<string | null>(null)
 
@@ -48,6 +58,19 @@ export function SideChatPanel(props: TabComponentProps & { annotationCore: Annot
   }, [ctx, tab.id, scope.sessionId, registeredChildId])
 
   const childId = registeredChildId ?? provisionedChildId
+  useEffect(() => {
+    if (childId === undefined) return
+    return props.modelCoordinator.register(childId, parentSessionId)
+  }, [props.modelCoordinator, childId, parentSessionId])
+  const childModel = useSyncExternalStore(
+    useCallback(
+      (notify: () => void) => childId === undefined
+        ? NOOP_UNSUBSCRIBE
+        : props.modelCoordinator.subscribe(childId, notify),
+      [props.modelCoordinator, childId],
+    ),
+    () => props.modelCoordinator.getSnapshot(childId ?? ''),
+  )
   const listSnapshot = useSyncExternalStore(
     useCallback((notify: () => void) => ctx.sessions.list.subscribe(notify), [ctx]),
     () => ctx.sessions.list.getSnapshot(),
@@ -76,16 +99,6 @@ export function SideChatPanel(props: TabComponentProps & { annotationCore: Annot
   )
   const composer = useComposer(session, childId, annotationCore)
 
-  const [modelName, setModelName] = useState<string | null>(null)
-  useEffect(() => {
-    if (childId === undefined || session === undefined) return
-    let active = true
-    void ctx.connection.api.sessions.models({ sessionId: childId })
-      .then(result => { if (active && result.result.ok) setModelName(result.result.value.current.model) })
-      .catch(() => {})
-    return () => { active = false }
-  }, [ctx, childId, session])
-
   const bodyRef = useRef<HTMLDivElement>(null)
   const tail = entries.at(-1)
   const tailKey = tail === undefined ? '' : `${tail.key}:${tail.kind === 'message' ? tail.message.text.length : 'custom'}`
@@ -107,7 +120,14 @@ export function SideChatPanel(props: TabComponentProps & { annotationCore: Annot
           : <MessageList entries={entries} sessionId={childId!} answerCore={answerCore} />}
         {snapshot?.openState === 'error' && <div className={css.errorRow}>{t('historyFailed')}</div>}
       </div>
-      <ComposerBar session={session} composer={composer} running={running} visible={visible} modelName={modelName} />
+      <ComposerBar
+        session={session}
+        composer={composer}
+        running={running}
+        visible={visible}
+        modelName={childModel.modelName}
+        modelPhase={childModel.phase}
+      />
     </div>
   )
 }
@@ -176,9 +196,11 @@ function ComposerBar(props: {
   running: boolean
   visible: boolean
   modelName: string | null
+  modelPhase: ChildModelPhase
 }) {
   useLocaleTick()
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const canSubmit = canSubmitWithModel(props.composer.canSubmit, props.modelPhase)
   useEffect(() => { if (props.visible) inputRef.current?.focus() }, [props.visible])
   return (
     <div className={css.composer}>
@@ -190,16 +212,26 @@ function ComposerBar(props: {
         value={props.composer.draft}
         onChange={event => { props.composer.setDraft(event.target.value) }}
         onKeyDown={event => {
-          if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
+          if (!isComposerSubmitKey({
+            key: event.key,
+            shiftKey: event.shiftKey,
+            isComposing: event.nativeEvent.isComposing,
+            keyCode: event.nativeEvent.keyCode,
+          })) return
           event.preventDefault()
+          if (props.modelPhase !== 'ready') return
           void props.composer.submit()
         }}
       />
       <div className={css.composerFoot}>
-        <span className={css.modelLabel}>{t('modelLabel', { name: props.modelName ?? t('modelFollowsMain') })}</span>
+        <span className={css.modelLabel}>{t('modelLabel', {
+          name: props.modelPhase === 'ready'
+            ? props.modelName ?? t('modelFollowsMain')
+            : t('modelSwitching'),
+        })}</span>
         {props.running
           ? <button type="button" className={css.stopButton} title={t('stopReplyTitle')} onClick={() => { props.session?.cancel().catch(() => {}) }}><IconStopFill16 size={14} /> {t('stopReply')}</button>
-          : <button type="button" className={css.sendButton} disabled={!props.composer.canSubmit} onClick={() => { void props.composer.submit() }}><IconSendOutline16 size={14} /> {t('send')}</button>}
+          : <button type="button" className={css.sendButton} disabled={!canSubmit} onClick={() => { void props.composer.submit() }}><IconSendOutline16 size={14} /> {t('send')}</button>}
       </div>
       {props.composer.sendError !== null && <div className={css.errorRow}>{props.composer.sendError}</div>}
     </div>

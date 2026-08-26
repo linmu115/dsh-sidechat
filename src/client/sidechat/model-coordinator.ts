@@ -53,6 +53,7 @@ function envelopeError(value: { result: { ok: boolean; error?: { message?: strin
  */
 export class SidechatModelCoordinator {
   private readonly entries = new Map<string, ChildEntry>()
+  private readonly waitingListeners = new Map<string, Set<() => void>>()
   private readonly serialTails = new Map<string, Promise<void>>()
   private readonly unsubscribeRoute: () => void
   private disposed = false
@@ -77,11 +78,12 @@ export class SidechatModelCoordinator {
         childId,
         parentSessionId,
         state: MISSING_STATE,
-        listeners: new Set(),
+        listeners: this.waitingListeners.get(childId) ?? new Set(),
         references: 0,
         active: true,
         running: false,
       }
+      this.waitingListeners.delete(childId)
       this.entries.set(childId, entry)
     } else {
       entry.parentSessionId = parentSessionId
@@ -108,7 +110,21 @@ export class SidechatModelCoordinator {
 
   subscribe(childId: string, listener: () => void): () => void {
     const entry = this.entries.get(childId)
-    if (entry === undefined || !entry.active || this.disposed) return () => {}
+    if (this.disposed) return () => {}
+    if (entry === undefined || !entry.active) {
+      let waiting = this.waitingListeners.get(childId)
+      if (waiting === undefined) {
+        waiting = new Set()
+        this.waitingListeners.set(childId, waiting)
+      }
+      waiting.add(listener)
+      return () => {
+        waiting!.delete(listener)
+        if (waiting!.size === 0 && this.waitingListeners.get(childId) === waiting) {
+          this.waitingListeners.delete(childId)
+        }
+      }
+    }
     entry.listeners.add(listener)
     return () => { entry.listeners.delete(listener) }
   }
@@ -131,6 +147,7 @@ export class SidechatModelCoordinator {
       entry.listeners.clear()
     }
     this.entries.clear()
+    this.waitingListeners.clear()
   }
 
   private schedule(entry: ChildEntry): void {

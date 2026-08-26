@@ -23,8 +23,17 @@ import { SIDE_TAB_TYPE, canForkFrom, collectSideTabs, mintSideTabId, sideTabTitl
 import { releaseSideChatSession } from './session-controller.ts'
 import { t } from '../locales.ts'
 import { registerSideCommand } from './slash.ts'
+import { createModelRouteStore } from './model-route-store.ts'
+import { SidechatModelCoordinator } from './model-coordinator.ts'
 
 export function registerSideChat(ctx: Context): void {
+  const modelRoutes = createModelRouteStore()
+  const modelCoordinator = new SidechatModelCoordinator(modelRoutes, ctx.connection.api.sessions)
+  ctx.effect(() => () => {
+    modelCoordinator.dispose()
+    modelRoutes.dispose()
+  }, 'dsh-sidechat: model route client')
+
   const annotationCore = observeAnnotationCore(ctx, [
     'embedded-composer-v1',
     'embedded-conversation-node-v1',
@@ -44,7 +53,13 @@ export function registerSideChat(ctx: Context): void {
         releaseSideChatSession(tab.id)
         void annotationSafetyGuard.closeTab(tab.id)
       },
-      component: (props) => <SideChatPanel {...props} annotationCore={annotationCore} />,
+      component: (props) => (
+        <SideChatPanel
+          {...props}
+          annotationCore={annotationCore}
+          modelCoordinator={modelCoordinator}
+        />
+      ),
     }),
     'dsh-sidechat: side chat tab',
   )
