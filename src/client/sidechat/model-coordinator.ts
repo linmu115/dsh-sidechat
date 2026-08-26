@@ -2,7 +2,11 @@ import type {
   ConnectionSessionsApi,
   ModelSelection,
 } from '../../context-types.ts'
-import type { ModelRoute, ModelRouteSnapshot } from '../../model-route.ts'
+import type { ModelRouteSnapshot } from '../../model-route.ts'
+import {
+  createModelBindingClient,
+  type ModelBindingClient,
+} from './model-binding-client.ts'
 import type { ModelRouteStore } from './model-route-store.ts'
 
 export type ChildModelPhase = 'pending' | 'switching' | 'ready'
@@ -31,15 +35,6 @@ const MISSING_STATE: ChildModelState = Object.freeze({
 
 type Warn = (message: string, error?: unknown) => void
 
-function routePayload(sessionId: string, route: ModelRoute): Parameters<ConnectionSessionsApi['selectModel']>[0] {
-  return {
-    sessionId,
-    provider: route.provider,
-    model: route.model,
-    ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }),
-  }
-}
-
 function envelopeError(value: { result: { ok: boolean; error?: { message?: string } } }, fallback: string): Error {
   return new Error(value.result.error?.message ?? fallback)
 }
@@ -64,6 +59,7 @@ export class SidechatModelCoordinator {
     private readonly warn: Warn = (message, error) => {
       console.warn(`[dsh-sidechat] ${message}`, error)
     },
+    private readonly bindings: ModelBindingClient = createModelBindingClient(),
   ) {
     this.unsubscribeRoute = routes.subscribe(() => {
       for (const entry of this.entries.values()) this.schedule(entry)
@@ -100,6 +96,7 @@ export class SidechatModelCoordinator {
       if (entry!.references > 0) return
       entry!.active = false
       entry!.listeners.clear()
+      this.bindings.unbind(childId)
       if (this.entries.get(childId) === entry) this.entries.delete(childId)
     }
   }
@@ -148,6 +145,7 @@ export class SidechatModelCoordinator {
     }
     this.entries.clear()
     this.waitingListeners.clear()
+    this.bindings.dispose()
   }
 
   private schedule(entry: ChildEntry): void {
@@ -183,13 +181,13 @@ export class SidechatModelCoordinator {
         phase: 'switching',
       })
 
-      const modelName = await this.applyTarget(entry, target)
+      const applied = await this.applyTarget(entry, target)
       if (!entry.active || this.disposed) return
-      const newerWaiting = this.routes.getSnapshot().revision > target.revision
+      const newerWaiting = this.routes.getSnapshot().revision > applied.revision
       this.publish(entry, {
         phase: newerWaiting ? 'switching' : 'ready',
-        modelName,
-        appliedRevision: target.revision,
+        modelName: applied.modelName,
+        appliedRevision: applied.revision,
       })
       if (!newerWaiting) return
     }
@@ -203,27 +201,35 @@ export class SidechatModelCoordinator {
     for (const listener of [...entry.listeners]) listener()
   }
 
-  private async applyTarget(entry: ChildEntry, target: ModelRouteSnapshot): Promise<string | null> {
-    if (target.route !== null) {
-      try {
-        return (await this.select(entry.childId, target.route)).model
-      } catch (error) {
-        this.warn(`configured model was rejected for ${entry.childId}; following its parent`, error)
-      }
-    }
-
+  private async applyTarget(
+    entry: ChildEntry,
+    target: ModelRouteSnapshot,
+  ): Promise<{ modelName: string | null; revision: number }> {
+    let parentRoute: ModelSelection | null = null
     try {
-      const parent = await this.current(entry.parentSessionId)
-      return (await this.select(entry.childId, parent)).model
+      parentRoute = await this.current(entry.parentSessionId)
     } catch (error) {
-      this.warn(`failed to synchronize ${entry.childId} with parent ${entry.parentSessionId}`, error)
+      this.warn(`failed to read parent model ${entry.parentSessionId} for ${entry.childId}`, error)
     }
 
     try {
-      return (await this.current(entry.childId)).model
+      const applied = await this.bindings.bind({
+        childId: entry.childId,
+        parentSessionId: entry.parentSessionId,
+        parentRoute,
+      })
+      if (applied.route !== null) {
+        return { modelName: applied.route.model, revision: applied.revision }
+      }
+    } catch (error) {
+      this.warn(`failed to bind the isolated model route for ${entry.childId}`, error)
+    }
+
+    try {
+      return { modelName: (await this.current(entry.childId)).model, revision: target.revision }
     } catch (error) {
       this.warn(`failed to read the retained model for ${entry.childId}`, error)
-      return entry.state.modelName
+      return { modelName: entry.state.modelName, revision: target.revision }
     }
   }
 
@@ -231,11 +237,5 @@ export class SidechatModelCoordinator {
     const response = await this.api.models({ sessionId })
     if (!response.result.ok) throw envelopeError(response, `unable to read model for ${sessionId}`)
     return response.result.value.current
-  }
-
-  private async select(sessionId: string, route: ModelRoute): Promise<ModelSelection> {
-    const response = await this.api.selectModel(routePayload(sessionId, route))
-    if (!response.result.ok) throw envelopeError(response, `unable to select model for ${sessionId}`)
-    return response.result.value.selected
   }
 }

@@ -113,7 +113,7 @@ export function SideChatPanel(props: TabComponentProps & {
 
   const running = snapshot?.running === true
   return (
-    <div className={css.root}>
+    <div className={css.root} data-dsh-sidechat-panel data-sidechat-child-id={childId}>
       <div ref={bodyRef} className={css.body}>
         {entries.length === 0 && !running
           ? <EmptyState />
@@ -127,6 +127,7 @@ export function SideChatPanel(props: TabComponentProps & {
         visible={visible}
         modelName={childModel.modelName}
         modelPhase={childModel.phase}
+        modelRevision={childModel.appliedRevision}
       />
     </div>
   )
@@ -197,6 +198,7 @@ function ComposerBar(props: {
   visible: boolean
   modelName: string | null
   modelPhase: ChildModelPhase
+  modelRevision: number
 }) {
   useLocaleTick()
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -224,7 +226,12 @@ function ComposerBar(props: {
         }}
       />
       <div className={css.composerFoot}>
-        <span className={css.modelLabel}>{t('modelLabel', {
+        <span
+          className={css.modelLabel}
+          data-sidechat-model-label
+          data-sidechat-model-phase={props.modelPhase}
+          data-sidechat-model-revision={props.modelRevision}
+        >{t('modelLabel', {
           name: props.modelPhase === 'ready'
             ? props.modelName ?? t('modelFollowsMain')
             : t('modelSwitching'),

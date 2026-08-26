@@ -9,6 +9,7 @@
 - Manager 保存后通过 Host SSE 把完整 revision 快照推给浏览器，不刷新页面、不重启 profile。
 - 当前页面所有已打开 Sidechat（侧栏 tab 与自由浮窗）按 child 串行切换，连续快速保存以最新 revision 为准。
 - 固定模型失效时回退该 Sidechat 自己的主会话模型；底部标签显示最终实际模型。
+- 使用有短租约的 Host 请求路由 binding，只覆盖当前挂载 child 的下一次模型请求，不调用会持久化全局默认值的 `session.selectModel`。
 - 切换期间禁用新提交；已经开始生成的回答不取消，新设置从下一次请求生效。
 
 ## 会话兼容性
@@ -17,7 +18,7 @@ Sidechat 仍是真实 fork 子会话，创建后归档隐藏。关闭 tab 只移
 
 ## 验证
 
-本变更由 Settings/HTTP-SSE/store/coordinator/UI gate/bundle contract 单测、浏览器 bundle 纯度门、一次性 DSH profile 和当前 `web` profile 现场验收共同覆盖。最终提交、包摘要与部署记录写入 `docs/release/verification.md`。
+本变更由 Settings/HTTP-SSE/binding lease/request override/store/coordinator/UI gate/bundle contract 单测、浏览器 bundle 纯度门、一次性 DSH profile 和当前 `web` profile 现场验收共同覆盖。最终提交、包摘要与部署记录写入 `docs/release/verification.md`。
 
 ## 回退
 

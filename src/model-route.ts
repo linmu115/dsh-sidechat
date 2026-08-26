@@ -1,6 +1,7 @@
 /** A concrete DSH model selection. `null` is the explicit inherit route. */
 export const MODEL_ROUTE_SNAPSHOT_PATH = '/plugins/dsh-sidechat/model-route'
 export const MODEL_ROUTE_EVENTS_PATH = '/plugins/dsh-sidechat/model-route/events'
+export const MODEL_BINDINGS_PATH = '/plugins/dsh-sidechat/model-bindings'
 
 export interface ModelRoute {
   provider: string
@@ -14,8 +15,26 @@ export interface ModelRouteSnapshot {
   route: ModelRoute | null
 }
 
+/** One browser page's ephemeral claim that a real child is an open Sidechat. */
+export interface ModelBindingRequest {
+  clientId: string
+  childId: string
+  parentSessionId: string
+  parentRoute: ModelRoute | null
+}
+
+/** Effective route the Host will apply to that child's next model request. */
+export interface ModelBindingSnapshot {
+  revision: number
+  route: ModelRoute | null
+}
+
 function nonBlank(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== ''
+}
+
+function boundedId(value: unknown): value is string {
+  return nonBlank(value) && value.length <= 256
 }
 
 /** Validate one route at an untyped boundary without accepting blank fields. */
@@ -55,4 +74,25 @@ export function parseModelRouteSnapshot(value: unknown): ModelRouteSnapshot | un
     revision: snapshot.revision as number,
     route: copyModelRoute(snapshot.route as ModelRoute | null),
   }
+}
+
+/** Parse the small, lossless-JSON binding request accepted by the Host. */
+export function parseModelBindingRequest(value: unknown): ModelBindingRequest | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const request = value as Record<string, unknown>
+  if (!boundedId(request.clientId)
+    || !boundedId(request.childId)
+    || !boundedId(request.parentSessionId)
+    || (request.parentRoute !== null && !isModelRoute(request.parentRoute))) return undefined
+  return {
+    clientId: request.clientId,
+    childId: request.childId,
+    parentSessionId: request.parentSessionId,
+    parentRoute: copyModelRoute(request.parentRoute as ModelRoute | null),
+  }
+}
+
+/** Parse the Host reply used to release the Sidechat composer gate. */
+export function parseModelBindingSnapshot(value: unknown): ModelBindingSnapshot | undefined {
+  return parseModelRouteSnapshot(value)
 }

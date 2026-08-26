@@ -22,7 +22,7 @@ Manager 的插件参数页新增“侧边会话模型”分组，包含一个 Co
 
 模型选择控件本身承担“配置按钮”的交互：用户点击控件打开 DSH 模型目录，选择模型后使用 Manager 的标准保存按钮提交。这里不另建 action 按钮，也不维护第二套配置存储。
 
-Manager 保存完成后不需要刷新页面或重启 profile。当前页面中已经打开的 Sidechat（包括未激活但仍挂载的侧栏 tab 和自由浮窗）立即切换到新路由；选择“跟随主会话”时，每个 Sidechat 分别读取自己的 `parentSessionId`，切回对应主会话的当前模型。正在生成的回答继续使用它启动时已经确定的模型，session 的模型选择立即更新，下一次模型请求使用新路由。
+Manager 保存完成后不需要刷新页面或重启 profile。当前页面中已经打开的 Sidechat（包括未激活但仍挂载的侧栏 tab 和自由浮窗）立即切换到新路由；选择“跟随主会话”时，每个 Sidechat 分别读取自己的 `parentSessionId`，切回对应主会话的当前模型。正在生成的回答继续使用它启动时已经确定的模型，已挂载 Sidechat 的隔离路由立即更新，下一次模型请求使用新路由。
 
 当前没有挂载的持久 Sidechat 不保持后台连接；它在布局恢复并重新挂载时立即对齐最新设置，然后才继续交互。已经显式关闭 tab、只剩 DSH 归档记录的子会话不再属于“打开的 Sidechat”，不会被后台批量改模。
 
@@ -40,7 +40,7 @@ Manager 保存完成后不需要刷新页面或重启 profile。当前页面中�
 | 生效模式 | `live`；Manager 保存后当前进程立即更新并通知已打开的 Sidechat |
 | 运行消费者 | Sidechat 模型协调器与子会话创建控制器 |
 
-`null` 明确定义为继承发起 fork 的主会话当前模型。固定模型在真实 `sessions.selectModel` 调用时接受最终可用性校验；Manager 只保证选择时来自当前目录，不能保证该路由以后永远存在。
+`null` 明确定义为继承发起 fork 的主会话当前模型。固定模型由 Host 的 LLM 路由解析器接受最终可用性校验；Manager 只保证选择时来自当前目录，不能保证该路由以后永远存在。
 
 目标包新增 `dsh-management/panel.yaml`，使用 Contract v2，并把 `dsh-management` 加入发布文件列表。Manager 通过 `dsh-settings` binding 直接读写上述 namespace/key，不写入其私有 `panel-values.json`。
 
@@ -61,6 +61,10 @@ Host 通过两个只读、同源受保护的 HTTP 端点向本插件 Client 暴�
 
 端点不接受写入；所有写入仍由 Manager 通过官方 Settings seam 完成。请求必须通过与 DSH Web API 等价的 Host、Origin 和 `Sec-Fetch-Site` 信任检查，并返回 `cache-control: no-store`。SSE 连接带有轻量保活，断线由浏览器自动重连；重连后的首帧携带完整当前快照，因此不依赖增量事件补齐断线期间的变化。
 
+另有一个同样受信任的临时 binding 端点，仅登记当前浏览器实际挂载的 `{ childId, parentSessionId, parentRoute }`，不写 Settings 或磁盘。登记带短租约，页面定时续租；tab 卸载时主动释放，页面异常关闭后租约自动过期。因此关闭但仍归档的子会话不会继续受到后台模型覆盖。
+
+实现不调用 `session.selectModel`：DSH rc.2 的该 RPC 会把对子会话的选择同时持久化成整个 profile 的默认模型，使空白父会话和无关新会话被 Sidechat 配置污染。Host 改在 `agent/request` 瀑布的最外层、仅对有活动 binding 的 child 覆盖 provider/model/reasoning effort；非模型调用参数保持不变。这既让真实请求走选定模型，也不会改写 DSH 全局默认模型。
+
 不直接从 Client 调用 Manager API，也不修改 DSH Settings RPC allowlist，避免目标插件依赖 Manager 私有协议或侵入 DSH 核心。
 
 ### Client 半部
@@ -76,12 +80,12 @@ Client 半部创建一个按插件 Context 共享的 Sidechat 模型协调器：
 Sidechat 完成真实子会话 fork、登记 tab metadata 后，为该子会话解析模型：
 
 1. 从 Host 只读端点获取最新 `defaultModelRoute`。
-2. 固定路由存在时，对子会话调用现有 `sessions.selectModel`，传入 provider、model 和可选 reasoning effort。
-3. 值为 `null`、Host 端点不可用或响应无效时，读取主会话当前模型，并沿用现有同步逻辑。
-4. 固定模型选择被 DSH 拒绝时，再尝试同步主会话模型。
-5. 模型设置和归档并行完成；任一模型设置错误都不阻断 Sidechat 创建或持久化。
+2. 读取主会话当前模型，并把 child、parent 与该父模型登记到 Host 的短租约 binding。
+3. 固定路由存在时，Host 校验 provider、model 和可选 reasoning effort，并让该 child 的下一次 `agent/request` 使用固定路由。
+4. 值为 `null`、固定模型被拒绝或模型目录后来移除时，Host 使用登记的父会话路由；binding 端点不可用时保留 fork 自带的模型状态。
+5. 模型登记和归档并行完成；任一模型设置错误都不阻断 Sidechat 创建或持久化。
 
-收到热更新事件时，协调器对登记表中的每个 child 执行同一模型解析流程。固定路由直接选择该模型；`null` 则按各自登记的 parent 读取当前模型。正在运行的回答不会被取消或迁移；`selectModel` 更新 session 的当前选择，影响下一次模型请求。
+收到热更新事件时，协调器对登记表中的每个 child 执行同一模型解析流程。固定路由由 Host 校验并绑定；`null` 则按各自登记的 parent 重新读取当前模型。正在运行的回答不会被取消或迁移；Host 在下一次 `agent/request` 边界读取最新 revision，因此不会把新模型混入已经开始的请求。
 
 Sidechat 面板底部继续显示子会话的实际当前模型。因此发生回退后，用户看到的是最终真正使用的模型，而不是过期配置值。
 
@@ -101,10 +105,10 @@ Sidechat 面板底部继续显示子会话的实际当前模型。因此发生�
 - Settings 服务缺失：使用 Cordis base；无显式 base 时跟随主会话。
 - Host 配置读取失败：记录警告并跟随主会话。
 - 固定路由字段为空：Settings 校验拒绝保存。
-- 模型已从目录移除或不可路由：`selectModel` 失败后回退主会话。
+- 模型已从目录移除或不可路由：Host 路由解析失败后回退登记的主会话模型。
 - 主会话模型读取或回退选择也失败：保留 fork 自身带来的模型状态，Sidechat 仍可使用；只记录诊断。
 - SSE 断线：保留各 session 当前模型，浏览器自动重连；重连首帧按完整快照对齐，不重放过期中间值。
-- 连续快速保存：每个 child 的串行 latest-wins 队列保证最终应用最大 revision；重复 revision 不重复调用 `selectModel`。
+- 连续快速保存：每个 child 的串行 latest-wins 队列保证最终应用最大 revision；重复 revision 不重复登记 binding。
 - 热切换发生在回答生成期间：不取消当前回答，新的选择从下一次模型请求生效。
 - tab 在 fork 期间关闭：沿用现有行为，归档已经产生的子会话并中止前端登记。
 

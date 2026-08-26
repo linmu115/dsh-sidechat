@@ -33,10 +33,6 @@ describe('sidechat session controller', () => {
     const ctx = {
       sessions: { fork: async () => { forks += 1; return forked } },
       workspaces: { archiveSession: async (id: string) => { archived.push(id) } },
-      connection: { api: { sessions: {
-        models: async () => ({ result: { ok: true, value: { current: { provider: 'p', model: 'm' } } } }),
-        selectModel: async () => ({ result: { ok: true, value: {} } }),
-      } } },
       betterSidebar: {
         getSnapshot: () => ({ sessionId: 'parent', state }),
         updateTab: (_id: string, patch: { meta?: unknown }) => { state = sideState(patch.meta) },

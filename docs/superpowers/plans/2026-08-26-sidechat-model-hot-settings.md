@@ -4,7 +4,9 @@
 
 **Goal:** 在 Manager 参数页从 DSH 已登记模型中配置 Sidechat 默认模型，并在保存后立即把当前页面所有已打开 Sidechat 切到新模型；会话归档、持久化、恢复和正在生成的回答保持原有语义。
 
-**Architecture:** Host 使用官方 `@deepseek-ai/dsh-settings` 注册 `dsh-sidechat/defaultModelRoute`，通过受同源信任保护的 JSON 快照和单条 SSE 通道把 revisioned route 推给 Client。Client 共享一个 route store 和一个 per-child 串行 latest-wins 协调器；每个挂载面板登记真实 child session，固定路由直接 `selectModel`，`null` 或失败时按自己的 parent 回退；切换期间阻止新提交但不取消在途回答。
+**Architecture:** Host 使用官方 `@deepseek-ai/dsh-settings` 注册 `dsh-sidechat/defaultModelRoute`，通过受同源信任保护的 JSON 快照和单条 SSE 通道把 revisioned route 推给 Client。Client 共享一个 route store 和一个 per-child 串行 latest-wins 协调器；每个挂载面板用短租约登记真实 child session，Host 在该 child 的下一次 `agent/request` 边界覆盖模型，`null` 或固定路由失效时按自己的 parent 回退；切换期间阻止新提交但不取消在途回答。
+
+**联调修订：** 一次性 profile 证明 rc.2 的 `session.selectModel` 会同时保存整个 profile 的默认模型，直接用于 Sidechat 会污染空白父会话和无关新会话。实现因此改为 Host 侧、仅对活动 Sidechat child 生效的请求路由 binding；该修订保持用户确认的热载入和会话生命周期语义，并新增“不改写全局默认模型”的回归覆盖。
 
 **Tech Stack:** TypeScript 5.6、React 18、Cordis/DSH 0.1.1-rc.2、`@deepseek-ai/dsh-settings`、`@deepseek-ai/schemastery`、Node HTTP/SSE、Vitest、Playwright、pnpm、DSH Maintenance Engine。
 
@@ -111,17 +113,17 @@ expect(store.getSnapshot().revision).toBe(4)
 
 ```ts
 const releaseA = deferred<void>()
-api.selectModel.mockImplementationOnce(async () => { await releaseA.promise; return ok('a') })
+binding.bind.mockImplementationOnce(async () => { await releaseA.promise; return applied(1, 'a') })
 store.publish({ revision: 1, route: route('a') })
 store.publish({ revision: 2, route: route('b') })
 releaseA.resolve()
 await coordinator.whenIdle('child')
-expect(selected.at(-1)?.model).toBe('b')
+expect(coordinator.getSnapshot('child').modelName).toBe('b')
 ```
 
 - [ ] 运行 `pnpm vitest run tests/model-coordinator.spec.ts tests/sidechat-unified.spec.ts`；预期失败。
 - [ ] 实现 `SidechatModelCoordinator`：`register/unregister/subscribe/getSnapshot/dispose`，child 状态为 `pending|switching|ready`、`modelName`、`appliedRevision`；每个 child 单独 promise chain，队列每轮重新读取最新目标 revision，确保 latest-wins。
-- [ ] 固定 route 直接 `selectModel`；`null` 先 `models(parent)` 再 `selectModel(child)`；固定失败只回退一次 parent；最终再 `models(child)` 获取真实标签；所有失败均记录诊断并释放 ready gate。
+- [ ] 每轮先读取 `models(parent)`，再向 Host 登记带租约的 child/parent binding；Host 校验固定 route 并在 `agent/request` 外层覆盖模型，`null` 或固定失败时使用登记的 parent route；最终失败再 `models(child)` 获取保留模型标签，所有失败均记录诊断并释放 ready gate。
 - [ ] 从 `session-controller.ts` 删除 `bestEffortModelSync` 和创建时的重复 model RPC，只保留 fork、tab meta 与 archive；更新原测试断言归档/复用不回归。
 - [ ] 运行 `pnpm vitest run tests/model-coordinator.spec.ts tests/sidechat-unified.spec.ts && pnpm typecheck`；预期通过。
 - [ ] 提交：`git add src/client/sidechat/model-coordinator.ts src/client/sidechat/session-controller.ts tests/model-coordinator.spec.ts tests/sidechat-unified.spec.ts && git commit -m "feat: coordinate live sidechat model switching"`

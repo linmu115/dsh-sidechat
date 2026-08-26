@@ -59,6 +59,7 @@ Open Manager → Plugins → `@evylynn/dsh-sidechat` → Parameters. In “Sidec
 - Every open sidebar tab and floating Sidechat window switches immediately.
 - “Follow main session” resolves each Sidechat against its own parent session.
 - An in-progress answer is not cancelled; the new route applies to the next model request.
+- Routing is scoped to currently mounted Sidechats; it never rewrites DSH's global default model or affects unrelated new sessions.
 - A persisted but unmounted layout aligns when restored. Explicitly closed, archive-only sessions are not changed in the background.
 
 ## Design notes

@@ -1,10 +1,16 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const BASE_URL = process.env.DSH_E2E_URL
 if (!BASE_URL) throw new Error('DSH_E2E_URL is not set — run via scripts/e2e-mount.sh')
 const CORE_MODE = process.env.DSH_E2E_CORE_MODE ?? 'compatible'
+const MANAGER_AVAILABLE = process.env.DSH_E2E_MANAGER === '1'
 const PLUGIN_CONSOLE = /dsh-sidechat|dsh-annotation-core|Unhandled/
+
+interface RouteSnapshot {
+  revision: number
+  route: null | { provider: string; model: string; reasoningEffort?: string }
+}
 
 async function dumpStep(page: Page, name: string): Promise<void> {
   try {
@@ -58,6 +64,26 @@ async function openPlusMenu(page: Page): Promise<void> {
   const sidebar = page.locator('[data-dsh-better-sidebar]')
   await expect(sidebar).toBeAttached({ timeout: 90_000 })
   await sidebar.getByRole('button', { name: /New tab|新建|新标签/ }).first().click({ timeout: 10_000 })
+}
+
+async function readModelRoute(page: Page): Promise<RouteSnapshot> {
+  return await page.evaluate(async () => {
+    const response = await fetch('/plugins/dsh-sidechat/model-route', {
+      cache: 'no-store', credentials: 'same-origin',
+    })
+    if (!response.ok) throw new Error(`model route snapshot failed: ${response.status}`)
+    return await response.json() as RouteSnapshot
+  })
+}
+
+async function saveManagerDraft(page: Page, manager: Locator): Promise<void> {
+  const response = page.waitForResponse((candidate) => {
+    if (!candidate.url().endsWith('/dsh-resource-management/api')) return false
+    const body = candidate.request().postData() ?? ''
+    return body.includes('"method":"save"')
+  })
+  await manager.getByRole('button', { name: '保存更改', exact: true }).click()
+  expect((await response).ok()).toBe(true)
 }
 
 async function openSeedSession(page: Page): Promise<void> {
@@ -209,6 +235,86 @@ test('multiple manual tabs keep independent real child sessions', async ({ page 
   await expect(sidebar.getByText(/full history snapshot/).first()).toBeVisible({ timeout: 60_000 })
   await openPlusMenu(page); await page.getByRole('menuitem', { name: /Side chat/ }).first().click()
   await expect(sidebar.getByText('Side 2', { exact: true })).toBeVisible({ timeout: 30_000 })
+})
+
+test('Manager model-select hot-switches every mounted sidechat and persists inheritance', async ({ page }) => {
+  test.skip(!MANAGER_AVAILABLE, 'dsh-resource-management tarball not installed')
+  test.skip(!process.env.DSH_E2E_SEED_SESSION, 'no seeded session')
+  const errors = collectErrors(page)
+  await openSeedSession(page)
+
+  const panels = page.locator('[data-dsh-sidechat-panel]')
+  for (let expected = 1; expected <= 2; expected += 1) {
+    await openPlusMenu(page)
+    await page.getByRole('menuitem', { name: /Side chat/ }).first().click()
+    await expect(panels).toHaveCount(expected, { timeout: 60_000 })
+  }
+  const labels = panels.locator('[data-sidechat-model-label]')
+  await expect.poll(async () => labels.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-sidechat-model-phase'))))
+    .toEqual(['ready', 'ready'])
+  const initialLabels = (await labels.allTextContents()).sort()
+  const initialChildren = (await panels.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-sidechat-child-id')).sort()))
+  expect(initialChildren.every(Boolean)).toBe(true)
+  expect(new Set(initialChildren).size).toBe(2)
+  const initialRoute = await readModelRoute(page)
+
+  await openPlusMenu(page)
+  await page.getByRole('menuitem', { name: '插件管理', exact: true }).click()
+  const manager = page.locator('.dsh-management-shell[data-resource-kind="plugin"]')
+  await expect(manager).toBeVisible({ timeout: 60_000 })
+  await manager.getByPlaceholder('搜索插件').fill('dsh-sidechat')
+  const card = manager.locator('[data-resource-id="plugin:@evylynn/dsh-sidechat"]')
+  await expect(card).toBeVisible({ timeout: 30_000 })
+  await card.click()
+  await manager.getByRole('button', { name: '参数设置', exact: true }).click()
+  await expect(manager.getByRole('heading', { name: '侧边会话模型', exact: true })).toBeVisible()
+
+  const trigger = manager.locator('.dsh-management-model-trigger')
+  await expect(trigger).toHaveText(/跟随主会话/)
+  await trigger.click()
+  const modelButtons = manager.locator('.dsh-management-model-list button')
+  await expect(modelButtons.nth(1)).toBeVisible({ timeout: 30_000 })
+  await modelButtons.nth(1).click()
+  await trigger.click()
+  await saveManagerDraft(page, manager)
+
+  await expect.poll(async () => (await readModelRoute(page)).revision).toBeGreaterThan(initialRoute.revision)
+  const fixed = await readModelRoute(page)
+  expect(fixed.route).not.toBeNull()
+  await expect.poll(async () => labels.evaluateAll(nodes => nodes.map(node => ({
+    phase: node.getAttribute('data-sidechat-model-phase'),
+    revision: Number(node.getAttribute('data-sidechat-model-revision')),
+    text: node.textContent ?? '',
+  })))).toEqual([
+    { phase: 'ready', revision: fixed.revision, text: expect.stringContaining(fixed.route!.model) },
+    { phase: 'ready', revision: fixed.revision, text: expect.stringContaining(fixed.route!.model) },
+  ])
+
+  await trigger.click()
+  await manager.getByRole('button', { name: /跟随主会话/ }).click()
+  await trigger.click()
+  await saveManagerDraft(page, manager)
+  await expect.poll(async () => (await readModelRoute(page)).revision).toBeGreaterThan(fixed.revision)
+  const inherited = await readModelRoute(page)
+  expect(inherited.route).toBeNull()
+  await expect.poll(async () => labels.evaluateAll(nodes => nodes.map(node => ({
+    phase: node.getAttribute('data-sidechat-model-phase'),
+    revision: Number(node.getAttribute('data-sidechat-model-revision')),
+  })))).toEqual([
+    { phase: 'ready', revision: inherited.revision },
+    { phase: 'ready', revision: inherited.revision },
+  ])
+  expect((await labels.allTextContents()).sort()).toEqual(initialLabels)
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await dismissOnboarding(page)
+  await expect(panels).toHaveCount(2, { timeout: 90_000 })
+  const restoredChildren = await panels.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-sidechat-child-id')).sort())
+  expect(restoredChildren).toEqual(initialChildren)
+  await expect.poll(async () => panels.locator('[data-sidechat-model-label]').evaluateAll(nodes => nodes.map(
+    node => Number(node.getAttribute('data-sidechat-model-revision')),
+  ))).toEqual([inherited.revision, inherited.revision])
+  expectClean(errors)
 })
 
 test('/side command opens the side chat', async ({ page }) => {

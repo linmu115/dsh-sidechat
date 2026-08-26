@@ -2,6 +2,7 @@ param(
   [string]$DshCommand = "",
   [string]$CoreTarball = "",
   [string]$SidechatTarball = "",
+  [string]$ManagerTarball = "",
   [int]$Port = 0,
   [string]$PlaywrightGrep = "",
   [ValidateSet("compatible", "missing", "incompatible")][string]$CoreMode = "compatible",
@@ -55,9 +56,18 @@ if (-not $SidechatTarball) {
   $SidechatTarball = Get-ChildItem -LiteralPath $repoRoot -Filter "*dsh-sidechat-*.tgz" |
     Select-Object -First 1 -ExpandProperty FullName
 }
+if (-not $ManagerTarball) {
+  $managerRepo = Join-Path (Split-Path -Parent $repoRoot) "dsh-resource-management"
+  if (Test-Path -LiteralPath $managerRepo -PathType Container) {
+    $ManagerTarball = Get-ChildItem -LiteralPath $managerRepo -Filter "dsh-resource-management-*.tgz" |
+      Sort-Object LastWriteTime -Descending |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+}
 if (-not (Test-Path -LiteralPath $DshCommand -PathType Leaf)) { throw "DSH command not found: $DshCommand" }
 if ($CoreMode -ne "missing" -and -not (Test-Path -LiteralPath $CoreTarball -PathType Leaf)) { throw "Core tarball not found: $CoreTarball" }
 if (-not (Test-Path -LiteralPath $SidechatTarball -PathType Leaf)) { throw "Sidechat tarball not found: $SidechatTarball" }
+if ($ManagerTarball -and -not (Test-Path -LiteralPath $ManagerTarball -PathType Leaf)) { throw "Manager tarball not found: $ManagerTarball" }
 
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $scratch = Join-Path $tempBase ("dsh-sidechat-e2e-" + [Guid]::NewGuid().ToString("N"))
@@ -72,6 +82,7 @@ $oldUrl = $env:DSH_E2E_URL
 $oldWorkspace = $env:DSH_E2E_WORKSPACE
 $oldSeed = $env:DSH_E2E_SEED_SESSION
 $oldCoreMode = $env:DSH_E2E_CORE_MODE
+$oldManager = $env:DSH_E2E_MANAGER
 $server = $null
 try {
   $env:DSH_HOME = Join-Path $scratch "home"
@@ -97,6 +108,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - dsh-annotation-core
   - dsh-better-sidebar
+  - dsh-resource-management
   - '@evylynn/dsh-sidechat'
 "@
 
@@ -119,6 +131,10 @@ minimumReleaseAgeExclude:
   $betterSidebarVersion = if ($env:BS_VERSION) { $env:BS_VERSION } else { "0.16.0" }
   & $DshCommand plugin --profile web add "dsh-better-sidebar@$betterSidebarVersion"
   if ($LASTEXITCODE -ne 0) { throw "Installing dsh-better-sidebar failed" }
+  if ($ManagerTarball) {
+    & $DshCommand plugin --profile web add ("file:" + [IO.Path]::GetFullPath($ManagerTarball))
+    if ($LASTEXITCODE -ne 0) { throw "Installing dsh-resource-management failed" }
+  }
   & $DshCommand plugin --profile web add ("file:" + [IO.Path]::GetFullPath($SidechatTarball))
   if ($LASTEXITCODE -ne 0) { throw "Installing dsh-sidechat failed" }
 
@@ -166,6 +182,7 @@ minimumReleaseAgeExclude:
   $env:DSH_E2E_WORKSPACE = $workspace
   $env:DSH_E2E_SEED_SESSION = $seedSession
   $env:DSH_E2E_CORE_MODE = $CoreMode
+  $env:DSH_E2E_MANAGER = if ($ManagerTarball) { "1" } else { "0" }
   if ($PlaywrightGrep) { & pnpm exec playwright test --grep $PlaywrightGrep }
   else { & pnpm exec playwright test }
   if ($LASTEXITCODE -ne 0) { throw "Playwright mount lanes failed" }
@@ -179,6 +196,7 @@ minimumReleaseAgeExclude:
   $env:DSH_E2E_WORKSPACE = $oldWorkspace
   $env:DSH_E2E_SEED_SESSION = $oldSeed
   $env:DSH_E2E_CORE_MODE = $oldCoreMode
+  $env:DSH_E2E_MANAGER = $oldManager
   if (-not $KeepHome) {
     $resolved = [IO.Path]::GetFullPath($scratch)
     if ($resolved.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $marker)) {

@@ -206,7 +206,6 @@ export interface RpcEnvelope<T> {
 
 export interface ConnectionSessionsApi {
   models(payload: { sessionId: SessionId }): Promise<RpcEnvelope<SessionModelsResult>>
-  selectModel(payload: { sessionId: SessionId; provider: string; model: string; reasoningEffort?: string }): Promise<RpcEnvelope<{ selected: ModelSelection }>>
 }
 
 export interface ConnectionService {
