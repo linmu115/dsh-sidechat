@@ -35,7 +35,7 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 
 | 依赖 | 作用 | 当前状态 |
 |---|---|---|
-| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 当前版本的硬依赖 |
+| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 运行时需要；peer 仅提示安装，不限制版本 |
 | [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | 提供统一注释气泡、发送上下文和已发送注释展示 | 硬依赖 |
 | `dsh-resource-management` | 在 Manager 参数页提供 DSH 模型目录选择器 | 可选，推荐安装 |
 
@@ -47,7 +47,7 @@ dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add @evylynn/dsh-sidechat
 ```
 
-如果通过 DSH Maintenance Engine 部署，依赖顺序会自动处理。core 缺失或版本不兼容时，普通侧边聊天仍可使用，但划选引用入口会停用。
+如果通过 DSH Maintenance Engine 部署，依赖顺序会自动处理。Sidechat 不限制 Better Sidebar 版本，方便在 Maintenance 中试验不同组合；不兼容组合由部署预览和 staging 结果提示，不会仅因 peer 版本范围被拒绝。core 缺失或版本不兼容时，普通侧边聊天仍可使用，但划选引用入口会停用。
 
 本地开发挂载：`dsh plugin --profile web add link:<本仓库路径>`（client 改动热重载，host 改动需重启 `dsh web`）。
 

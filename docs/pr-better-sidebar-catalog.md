@@ -11,7 +11,8 @@
     name: 'dsh-sidechat 侧边聊天',
     url: 'https://github.com/linmu115/dsh-sidechat',
     description: () => t('pluginSideChatDesc'),
-    // dsh-sidechat hard-depends on dsh-better-sidebar (required peer), so
+    // dsh-sidechat requires the betterSidebar runtime service while accepting
+    // any peer version, so
     // the install line installs the prerequisite first, then the plugin.
     install: 'cd ~/.dsh && dsh plugin --profile web add dsh-better-sidebar && dsh plugin --profile web add @evylynn/dsh-sidechat@latest',
   },

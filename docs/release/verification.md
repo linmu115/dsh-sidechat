@@ -25,6 +25,16 @@ Acceptance criteria:
 
 Failure-isolation, hot-reload, removal, and current Workshop-baseline evidence remain `null` until the Workshop harness records them.
 
+## 0.3.1 local release evidence (2026-08-28)
+
+- `pnpm typecheck`: passed.
+- `pnpm test`: 14 files / 95 tests passed.
+- `pnpm build` and `pnpm pack --dry-run --json`: passed; the package is
+  `@evylynn/dsh-sidechat@0.3.1` and includes the Manager panel, change note,
+  Host and Client bundles, declarations, sources, license, and both READMEs.
+- The Better Sidebar peer remains required for installation discovery but uses
+  range `*`, so no Better Sidebar version is rejected by Sidechat metadata.
+
 ## 0.3.0 local release evidence (2026-08-26)
 
 - `pnpm typecheck`: passed.

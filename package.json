@@ -1,6 +1,6 @@
 {
   "name": "@evylynn/dsh-sidechat",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": false,
   "description": "DSH web plugin: persistent forked side chat plus shared Codex-style annotation bubbles powered by dsh-annotation-core.",
   "type": "module",
@@ -102,7 +102,7 @@
     "@deepseek-ai/schemastery": "^3.18.1",
     "cordis": "^4.0.0-rc.7",
     "dsh-annotation-core": ">=0.1.0 <0.2.0",
-    "dsh-better-sidebar": "^0.16.0",
+    "dsh-better-sidebar": "*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -13,13 +13,13 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
-  it('ships the live Manager model-select contract in the 0.3.0 package', () => {
+  it('ships the live Manager model-select contract in the 0.3.1 package', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       version: string
       files: string[]
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.3.0')
+    expect(packageJson.version).toBe('0.3.1')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('^0.1.1-rc.2')
@@ -48,7 +48,7 @@ describe('consumer bundle contract', () => {
       peerDependencies: Record<string, string>
     }
     expect(packageJson.peerDependencies['dsh-annotation-core']).toBe('>=0.1.0 <0.2.0')
-    expect(packageJson.peerDependencies['dsh-better-sidebar']).toBe('^0.16.0')
+    expect(packageJson.peerDependencies['dsh-better-sidebar']).toBe('*')
   })
 
   it('contains no legacy annotation state, quote codec, hidden chip, or copied core runtime', () => {

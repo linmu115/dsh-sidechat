@@ -35,7 +35,7 @@ Select text in a user or assistant message and turn it into inspectable, annotat
 
 | Dependency | Purpose | Status |
 |---|---|---|
-| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Hard dependency of the current release |
+| [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Provides the right-sidebar container and tab registration service | Required at runtime; the peer only prompts installation and accepts any version |
 | [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | Shared annotation bubbles, model context, and sent-annotation presentation | Hard dependency |
 | `dsh-resource-management` | DSH model-catalog selector on the Manager parameter page | Optional, recommended |
 
@@ -47,7 +47,7 @@ dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add @evylynn/dsh-sidechat
 ```
 
-DSH Maintenance Engine handles that order automatically. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.
+DSH Maintenance Engine handles that order automatically. Sidechat does not constrain the Better Sidebar version, so Maintenance can exercise different version combinations; deployment preview and staging report incompatibilities instead of rejecting a candidate solely because of its peer range. If core is missing or incompatible, ordinary side chat remains available while selection-reference actions are disabled.
 
 For local development: `dsh plugin --profile web add link:<path-to-this-repo>` (client changes hot-reload; host changes need a `dsh web` restart).
 
