@@ -13,17 +13,17 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
-  it('ships the live Manager model-select contract in the 0.3.1 package', () => {
+  it('ships the live Manager model-select contract in the 0.3.2 package', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       version: string
       files: string[]
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.3.1')
+    expect(packageJson.version).toBe('0.3.2')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
-    expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('^0.1.1-rc.2')
-    expect(packageJson.peerDependencies['@deepseek-ai/dsh-host-webserver']).toBe('^0.1.1-rc.2')
+    expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('*')
+    expect(packageJson.peerDependencies['@deepseek-ai/dsh-host-webserver']).toBe('*')
 
     const panel = readFileSync(join(process.cwd(), 'dsh-management', 'panel.yaml'), 'utf8')
     for (const contract of [
@@ -43,11 +43,12 @@ describe('consumer bundle contract', () => {
     expect(patch).toContain('defaultModelRoute: null')
   })
 
-  it('declares the official web profile dependency versions', () => {
+  it('keeps host and plugin peers version-open', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.peerDependencies['dsh-annotation-core']).toBe('>=0.1.0 <0.2.0')
+    expect(new Set(Object.values(packageJson.peerDependencies))).toEqual(new Set(['*']))
+    expect(packageJson.peerDependencies['dsh-annotation-core']).toBe('*')
     expect(packageJson.peerDependencies['dsh-better-sidebar']).toBe('*')
   })
 

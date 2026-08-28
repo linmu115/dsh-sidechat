@@ -36,7 +36,7 @@ DSH（DeepSeek Harness）web 插件：Codex 风格的**侧边聊天**与**划选
 | 依赖 | 作用 | 当前状态 |
 |---|---|---|
 | [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | 提供右侧栏容器与 Tab 注册服务 | 运行时需要；peer 仅提示安装，不限制版本 |
-| [`dsh-annotation-core >=0.1.0 <0.2.0`](https://github.com/linmu115/dsh-annotation-core) | 提供统一注释气泡、发送上下文和已发送注释展示 | 硬依赖 |
+| [`dsh-annotation-core`](https://github.com/linmu115/dsh-annotation-core) | 提供统一注释气泡、发送上下文和已发送注释展示；不限制版本，按运行时接口实际结果验收 | 硬依赖 |
 | `dsh-resource-management` | 在 Manager 参数页提供 DSH 模型目录选择器 | 可选，推荐安装 |
 
 请按顺序安装 core → better-sidebar → sidechat；三个包都只需安装到官方 `web` profile 一次：
