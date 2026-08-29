@@ -58,6 +58,7 @@ export function registerSideChat(ctx: Context): void {
           {...props}
           annotationCore={annotationCore}
           modelCoordinator={modelCoordinator}
+          runtime={ctx}
         />
       ),
     }),

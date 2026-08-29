@@ -34,9 +34,10 @@ function openSessionWindow(session: SessionFace | undefined): void {
 export function SideChatPanel(props: TabComponentProps & {
   annotationCore: AnnotationCoreAvailability
   modelCoordinator: SidechatModelCoordinator
+  runtime: Pick<Context, 'betterSidebar' | 'sessions' | 'uiConversation' | 'workspaces'>
 }) {
   useLocaleTick()
-  const { ctx, scope, tab, visible, store } = props
+  const { runtime, scope, tab, visible, store } = props
   const tabMeta = parseSideChatMeta(tab.meta)
   const registeredChildId = tabMeta.childId
   const parentSessionId = tabMeta.parentSessionId ?? scope.sessionId
@@ -51,11 +52,11 @@ export function SideChatPanel(props: TabComponentProps & {
   useEffect(() => {
     if (registeredChildId !== undefined) { setProvisionedChildId(registeredChildId); return }
     let active = true
-    void ensureSideChatSession(ctx, tab.id, scope.sessionId)
+    void ensureSideChatSession(runtime, tab.id, scope.sessionId)
       .then(childId => { if (active) { setProvisionedChildId(childId); setForkError(null) } })
       .catch(error => { if (active) setForkError(error instanceof Error ? error.message : String(error)) })
     return () => { active = false }
-  }, [ctx, tab.id, scope.sessionId, registeredChildId])
+  }, [runtime, tab.id, scope.sessionId, registeredChildId])
 
   const childId = registeredChildId ?? provisionedChildId
   useEffect(() => {
@@ -72,11 +73,11 @@ export function SideChatPanel(props: TabComponentProps & {
     () => props.modelCoordinator.getSnapshot(childId ?? ''),
   )
   const listSnapshot = useSyncExternalStore(
-    useCallback((notify: () => void) => ctx.sessions.list.subscribe(notify), [ctx]),
-    () => ctx.sessions.list.getSnapshot(),
+    useCallback((notify: () => void) => runtime.sessions.list.subscribe(notify), [runtime]),
+    () => runtime.sessions.list.getSnapshot(),
   )
   const listed = childId !== undefined && listSnapshot.byId?.[childId] !== undefined
-  const session = childId === undefined ? undefined : ctx.sessions.binding(childId)?.session
+  const session = childId === undefined ? undefined : runtime.sessions.binding(childId)?.session
   useEffect(() => { openSessionWindow(session) }, [session])
   const phase = phaseOf({
     childId,
@@ -92,8 +93,8 @@ export function SideChatPanel(props: TabComponentProps & {
   )
   const chat = useMemo(() => {
     if (childId === undefined || session === undefined) return undefined
-    try { return ctx.uiConversation.binding(childId).target('chat') } catch { return undefined }
-  }, [ctx.uiConversation, childId, session])
+    try { return runtime.uiConversation.binding(childId).target('chat') } catch { return undefined }
+  }, [runtime.uiConversation, childId, session])
   const chatSnapshot = useSyncExternalStore(
     useCallback((notify: () => void) => visible && chat !== undefined ? chat.subscribe(notify) : NOOP_UNSUBSCRIBE, [visible, chat]),
     () => chat?.getSnapshot() ?? null,

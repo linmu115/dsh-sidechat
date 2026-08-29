@@ -19,7 +19,7 @@ describe('consumer bundle contract', () => {
       files: string[]
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.4.0')
+    expect(packageJson.version).toBe('0.4.1')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('*')
