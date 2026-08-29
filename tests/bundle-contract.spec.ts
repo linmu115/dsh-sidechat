@@ -19,7 +19,7 @@ describe('consumer bundle contract', () => {
       files: string[]
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.4.1')
+    expect(packageJson.version).toBe('0.4.2')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('*')
@@ -50,6 +50,12 @@ describe('consumer bundle contract', () => {
     expect(new Set(Object.values(packageJson.peerDependencies))).toEqual(new Set(['*']))
     expect(packageJson.peerDependencies['dsh-annotation-core']).toBe('*')
     expect(packageJson.peerDependencies['dsh-better-sidebar']).toBe('*')
+  })
+
+  it('uses the alpha.1 Markdown labels contract', () => {
+    const panel = readFileSync(join(process.cwd(), 'src', 'client', 'sidechat', 'SideChatPanel.tsx'), 'utf8')
+    expect(panel).toContain('labels={markdownLabels}')
+    expect(panel).not.toContain('codeLabels={')
   })
 
   it('contains no legacy annotation state, quote codec, hidden chip, or copied core runtime', () => {

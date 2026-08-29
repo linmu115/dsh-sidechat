@@ -1,5 +1,5 @@
 import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from 'react'
 import { IconNewChatOutline16, IconSendOutline16, IconStopFill16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 
 import type { Context, SessionFace, TabComponentProps } from '../../context-types.ts'
@@ -23,7 +23,12 @@ import { canSubmitWithModel, isComposerSubmitKey } from './model-submit-gate.ts'
 import css from './sidechat.module.css'
 
 const NOOP_UNSUBSCRIBE = (): void => {}
-function codeLabels() { return { copyLabel: t('codeCopy'), copiedLabel: t('codeCopied') } }
+type AlphaMarkdownProps = {
+  text: string
+  streaming?: boolean
+  labels: { code: { copyLabel: string; copiedLabel: string }; footnotes: string }
+}
+const AlphaMarkdownText = MarkdownText as unknown as ComponentType<AlphaMarkdownProps>
 
 function openSessionWindow(session: SessionFace | undefined): void {
   const openable = session as unknown as { open?: () => Promise<void> } | undefined
@@ -190,13 +195,20 @@ function answerClick(core: Pick<AnnotationCoreClient, 'handleAnswerLink'> | unde
 function MessageRow(props: { message: ChatMessage; sessionId: string; answerCore: Pick<AnnotationCoreClient, 'handleAnswerLink'> | undefined }) {
   useLocaleTick()
   const { message } = props
+  const copyLabel = t('codeCopy')
+  const copiedLabel = t('codeCopied')
+  const footnotes = t('markdownFootnotes')
+  const markdownLabels = useMemo(() => ({
+    code: { copyLabel, copiedLabel },
+    footnotes,
+  }), [copyLabel, copiedLabel, footnotes])
   switch (message.role) {
     case 'user': return <div className={css.userRow}><div className={css.userBubble}>{message.text}</div></div>
     case 'assistant': return (
       <div className={css.assistantRow} onClickCapture={event => { answerClick(props.answerCore, props.sessionId, event) }}>
         <div className={css.assistantBody}>
           {message.reasoning && <details className={css.reasoning}><summary>{t('thinking')}</summary><div className={css.reasoningBody}>{message.reasoning}</div></details>}
-          {message.text !== '' ? <MarkdownText text={message.text} streaming={message.streaming} codeLabels={codeLabels()} /> : message.streaming === true && <div className={css.streamingHint}>{t('writing')}</div>}
+          {message.text !== '' ? <AlphaMarkdownText text={message.text} streaming={message.streaming} labels={markdownLabels} /> : message.streaming === true && <div className={css.streamingHint}>{t('writing')}</div>}
           {message.interrupted === true && <div className={css.noticeRow}>{t('stopped')}</div>}
         </div>
       </div>

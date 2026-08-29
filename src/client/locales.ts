@@ -17,6 +17,7 @@ export const en = {
   // SideChatPanel
   codeCopy: 'Copy',
   codeCopied: 'Copied',
+  markdownFootnotes: 'Footnotes',
   forkErrorTitle: "Couldn't create the side chat",
   forkErrorHint: 'The main session needs at least one completed turn to fork from. Close this tab with the × on the tab.',
   missingTitle: 'Session no longer exists',
@@ -83,6 +84,7 @@ export const zh: Record<CopyKey, string> = {
 
   codeCopy: '复制',
   codeCopied: '已复制',
+  markdownFootnotes: '脚注',
   forkErrorTitle: '无法创建侧边聊天',
   forkErrorHint: '主会话需要至少一轮已完成的对话才能 fork。点击标签上的 × 可关闭此标签页。',
   missingTitle: '会话已不存在',
