@@ -125,27 +125,27 @@ describe('shared embedded composer contract', () => {
 })
 
 describe('embedded conversation projection', () => {
-  it('delegates raw nodes to core before ordinary folding and preserves order', () => {
+  it('delegates native custom Chat nodes to core and merges them with legacy rows', () => {
     const calls: unknown[] = []
     const core = {
       renderConversationNode(input: { node: unknown }) {
         calls.push(input.node)
-        const node = input.node as { kind?: string; seq?: number }
+        const node = input.node as { kind?: string; anchorSeq?: number }
         return node.kind === 'dsh-annotation'
-          ? { key: `annotation:${node.seq}`, node: 'shared annotation bubble' }
+          ? { key: `annotation:${node.anchorSeq}`, node: 'shared annotation bubble' }
           : undefined
       },
     }
     const entries = transcriptEntriesOf({
       nodes: [
         { kind: 'user', seq: 1, content: [{ type: 'text', text: 'question' }] },
-        { kind: 'dsh-annotation', seq: 2 },
         { kind: 'assistant', seq: 3, blocks: [{ kind: 'text', text: 'answer' }] },
       ],
+      chatNodes: [{ key: 'annotation-context', kind: 'dsh-annotation', anchorSeq: 2, data: { count: 1 } }],
       running: false,
       sessionId: 'child',
     } as never, core as never, 'child')
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(1)
     expect(entries.map(entry => entry.key)).toEqual(['u:1', 'annotation:2', 'a:3'])
     expect(entries[1]).toMatchObject({ kind: 'custom', node: 'shared annotation bubble' })
   })

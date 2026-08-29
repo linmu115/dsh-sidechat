@@ -86,10 +86,25 @@ export function SideChatPanel(props: TabComponentProps & {
     listed,
   })
 
-  const snapshot = useSyncExternalStore(
+  const sessionSnapshot = useSyncExternalStore(
     useCallback((notify: () => void) => visible && session !== undefined ? session.subscribe(notify) : NOOP_UNSUBSCRIBE, [visible, session]),
     () => session?.getSnapshot() ?? null,
   )
+  const chat = useMemo(() => {
+    if (childId === undefined || session === undefined) return undefined
+    try { return ctx.uiConversation.binding(childId).target('chat') } catch { return undefined }
+  }, [ctx.uiConversation, childId, session])
+  const chatSnapshot = useSyncExternalStore(
+    useCallback((notify: () => void) => visible && chat !== undefined ? chat.subscribe(notify) : NOOP_UNSUBSCRIBE, [visible, chat]),
+    () => chat?.getSnapshot() ?? null,
+  )
+  const snapshot = useMemo(() => sessionSnapshot === null ? null : ({
+    ...sessionSnapshot,
+    nodes: chatSnapshot?.legacy.nodes ?? [],
+    partial: chatSnapshot?.legacy.partial ?? null,
+    runningCalls: chatSnapshot?.legacy.runningCalls ?? [],
+    chatNodes: chatSnapshot?.nodes.values() ?? [],
+  }), [sessionSnapshot, chatSnapshot])
   const annotationCore = useSyncExternalStore(props.annotationCore.subscribe, props.annotationCore.getSnapshot)
   const projectionCore = annotationCore
   const answerCore = annotationCore

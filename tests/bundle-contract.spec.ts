@@ -13,13 +13,13 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
-  it('ships the live Manager model-select contract in the 0.3.2 package', () => {
+  it('ships the live Manager model-select contract in the 0.4.0 package', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       version: string
       files: string[]
       peerDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.3.2')
+    expect(packageJson.version).toBe('0.4.0')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('*')

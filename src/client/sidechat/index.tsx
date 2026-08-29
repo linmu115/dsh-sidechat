@@ -28,7 +28,7 @@ import { SidechatModelCoordinator } from './model-coordinator.ts'
 
 export function registerSideChat(ctx: Context): void {
   const modelRoutes = createModelRouteStore()
-  const modelCoordinator = new SidechatModelCoordinator(modelRoutes, ctx.connection.api.sessions)
+  const modelCoordinator = new SidechatModelCoordinator(modelRoutes, ctx.sessions)
   ctx.effect(() => () => {
     modelCoordinator.dispose()
     modelRoutes.dispose()

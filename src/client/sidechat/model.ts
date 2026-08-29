@@ -5,9 +5,8 @@
  * 数据源事实（权威注释）：
  * - SidebarState 真实形态是 splits/bottomSplits 两棵 split/leaf 树
  *   （dsh-better-sidebar src/client/state.ts），leaf.tabs 持有 SidebarTab。
- * - ConversationSnapshot.nodes 是 ConversationNode 联合（kind 判别），
- *   partial/runningCalls 承载在途流式输出（dsh-client-runtime
- *   lib/types/client/sessions/conversation.d.ts）。
+ * - Session 生命周期来自 api-session-controller；消息由 uiConversation
+ *   的 Chat target 提供，legacy slice 保留 ConversationNode 折叠面。
  */
 import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
 import type { ReactNode } from 'react'
@@ -286,7 +285,7 @@ export function nodeToMessage(node: unknown): ChatMessage | null {
 }
 
 /**
- * ConversationSnapshot → 渲染消息列表：终态节点 + 在途工具调用 + 流式部分。
+ * Chat target legacy slice → 渲染消息列表：终态节点 + 在途工具调用 + 流式部分。
  * 快照缺省（未绑定）时为空列表。
  */
 export function transcriptOf(snapshot: ConversationSnapshot | undefined | null): ChatMessage[] {
@@ -327,23 +326,35 @@ export function transcriptOf(snapshot: ConversationSnapshot | undefined | null):
   return out
 }
 
-/** Give each durable node to core before the ordinary sidechat projection. */
+/** Merge native custom Chat nodes with the legacy transcript projection by event sequence. */
 export function transcriptEntriesOf(
   snapshot: ConversationSnapshot | undefined | null,
   core: Pick<AnnotationCoreClient, 'renderConversationNode'> | undefined,
   sessionId: string,
 ): TranscriptEntry[] {
   if (snapshot === undefined || snapshot === null) return []
-  const entries: TranscriptEntry[] = []
+  const ordered: Array<{ readonly seq: number; readonly order: number; readonly entry: TranscriptEntry }> = []
+  let order = 0
   for (const node of snapshot.nodes ?? []) {
+    const message = nodeToMessage(node)
+    if (message !== null) {
+      const seq = typeof node === 'object' && node !== null && typeof (node as { seq?: unknown }).seq === 'number'
+        ? (node as { seq: number }).seq
+        : Number.MAX_SAFE_INTEGER
+      ordered.push({ seq, order: order++, entry: { kind: 'message', key: message.key, message } })
+    }
+  }
+  for (const node of snapshot.chatNodes ?? []) {
     const projected = core?.renderConversationNode({ sessionId, node, layout: 'narrow' })
     if (projected !== undefined) {
-      entries.push({ kind: 'custom', key: projected.key, node: projected.node })
-      continue
+      const seq = typeof node === 'object' && node !== null && typeof (node as { anchorSeq?: unknown }).anchorSeq === 'number'
+        ? (node as { anchorSeq: number }).anchorSeq
+        : Number.MAX_SAFE_INTEGER
+      ordered.push({ seq, order: order++, entry: { kind: 'custom', key: projected.key, node: projected.node } })
     }
-    const message = nodeToMessage(node)
-    if (message !== null) entries.push({ kind: 'message', key: message.key, message })
   }
+  ordered.sort((left, right) => left.seq - right.seq || left.order - right.order)
+  const entries = ordered.map(item => item.entry)
   const ephemeral = transcriptOf({ ...snapshot, nodes: [] } as ConversationSnapshot)
   for (const message of ephemeral) entries.push({ kind: 'message', key: message.key, message })
   return entries
