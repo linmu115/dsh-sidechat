@@ -8,7 +8,7 @@
  * - Session 生命周期来自 api-session-controller；消息由 uiConversation
  *   的 Chat target 提供，legacy slice 保留 ConversationNode 折叠面。
  */
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
 import type { ReactNode } from 'react'
 import type { ConversationSnapshot, Context, SidebarTab } from '../../context-types.ts'
 import { t } from '../locales.ts'

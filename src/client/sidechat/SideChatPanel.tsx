@@ -1,4 +1,4 @@
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from 'react'
 import { IconNewChatOutline16, IconSendOutline16, IconStopFill16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 

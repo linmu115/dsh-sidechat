@@ -4,7 +4,7 @@ import type {
   PlainComposerPort,
   PlainComposerSnapshot,
   PlainSubmitResult,
-} from 'dsh-annotation-core/client-api'
+} from '../annotation-core-contract.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 
