@@ -159,6 +159,13 @@ function collectErrors(page: Page): { pageErrors: string[]; consoleErrors: strin
   return state
 }
 
+function mainComposer(page: Page): Locator {
+  // Alpha.1's native composer no longer exposes the rc.x accessible name.
+  // Keep this tied to editable controls instead of a translated label; the
+  // conversation is already open before callers use it.
+  return page.locator('textarea:visible, [contenteditable="true"]:visible').last()
+}
+
 function expectClean(errors: ReturnType<typeof collectErrors>): void {
   expect(errors.pageErrors).toEqual([])
   expect(errors.consoleErrors.filter(text => PLUGIN_CONSOLE.test(text))).toEqual([])
@@ -221,8 +228,12 @@ test('main reference uses a clean shared rail and renumbers after deletion', asy
   await overlay.getByText('Add to conversation').click()
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(1, { timeout: 15_000 })
 
-  const composer = page.getByRole('textbox', { name: /Message the agent|输入消息|随心输入/ }).first()
-  const draft = await composer.inputValue().catch(async () => composer.textContent() ?? '')
+  const composer = mainComposer(page)
+  await expect(composer).toBeVisible({ timeout: 15_000 })
+  const draft = await composer.evaluate((element) =>
+    element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement
+      ? element.value
+      : element.textContent ?? '')
   expect(draft).not.toContain('full history snapshot')
   expect(draft).not.toContain('@')
 
@@ -371,7 +382,8 @@ test('Manager model-select hot-switches every mounted sidechat and persists inhe
 test('/side command opens the side chat', async ({ page }) => {
   test.skip(!process.env.DSH_E2E_SEED_SESSION, 'no seeded session')
   await openSeedSession(page)
-  const composer = page.getByRole('textbox', { name: /Message the agent|输入消息|随心输入/ }).first()
+  const composer = mainComposer(page)
+  await expect(composer).toBeVisible({ timeout: 15_000 })
   await composer.click(); await page.keyboard.type('/')
   const entry = page.getByRole('option', { name: /side/ }).first()
   await expect(entry).toBeVisible({ timeout: 10_000 }); await entry.click()
