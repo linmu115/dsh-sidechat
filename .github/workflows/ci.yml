@@ -61,8 +61,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install dsh CLI (pinned)
-        run: npm install -g @deepseek-ai/dsh@0.1.0-rc.6
+      - name: Install DSH Alpha.1 CLI
+        run: npm install -g @deepseek-ai/dsh@0.1.2-alpha.1
 
       - name: Build and pack the npm tarball
         run: pnpm build && pnpm pack

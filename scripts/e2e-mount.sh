@@ -9,7 +9,8 @@
 #   4. 启动真实 `dsh web --port 0`（keyless），Playwright 无头渲染断言。
 #
 # 用法：bash scripts/e2e-mount.sh [--grep <playwright-filter>]
-# 环境变量：DSH_CMD / CORE_TARBALL / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME。
+# 环境变量：DSH_CMD / CORE_TARBALL / CORE_SOURCE / CORE_REF / TARBALL /
+# PORT / DSH_HOME_BASE / KEEP_HOME。
 # =============================================================================
 set -euo pipefail
 
@@ -50,12 +51,17 @@ if [ -z "$CORE_TARBALL" ]; then
   CORE_TARBALL="$(ls "$ROOT"/dsh-annotation-core-*.tgz "$ROOT"/../dsh-annotation-core/dsh-annotation-core-*.tgz 2>/dev/null | head -1 || true)"
 fi
 if [ -z "$CORE_TARBALL" ]; then
-  CORE_PACKAGE_ROOT="$(node -e 'const path = require("node:path"); console.log(path.dirname(require.resolve("dsh-annotation-core/package.json")))')"
-  say "从已锁定的公开依赖生成 core tarball..."
+  CORE_SOURCE="${CORE_SOURCE:-https://github.com/linmu115/dsh-annotation-core.git}"
+  CORE_REF="${CORE_REF:-main}"
+  CORE_PACKAGE_ROOT="$(mktemp -d /tmp/dsh-annotation-core-e2e.XXXXXX)"
+  say "从 ${CORE_SOURCE}#${CORE_REF} 构建能力提供者..."
+  git clone --depth 1 --branch "$CORE_REF" "$CORE_SOURCE" "$CORE_PACKAGE_ROOT"
+  pnpm --dir "$CORE_PACKAGE_ROOT" install --frozen-lockfile
+  pnpm --dir "$CORE_PACKAGE_ROOT" build
   CORE_VERSION="$(node -e 'console.log(require(process.argv[1]).version)' "$CORE_PACKAGE_ROOT/package.json")"
   CORE_TARBALL="$ROOT/dsh-annotation-core-$CORE_VERSION.tgz"
-  tar -czf "$CORE_TARBALL" --transform='s,^,package/,' -C "$CORE_PACKAGE_ROOT" \
-    package.json LICENSE README.md README_EN.md cordis.patch.yml lib
+  pnpm --dir "$CORE_PACKAGE_ROOT" pack --pack-destination "$ROOT"
+  rm -rf "$CORE_PACKAGE_ROOT"
 fi
 [ -n "$CORE_TARBALL" ] && [ -f "$CORE_TARBALL" ] || die "找不到 dsh-annotation-core tarball——设置 CORE_TARBALL"
 CORE_TARBALL="$(cd "$(dirname "$CORE_TARBALL")" && pwd)/$(basename "$CORE_TARBALL")"
@@ -117,8 +123,8 @@ minimumReleaseAgeExclude:
 EOF
 
 # 步骤 2：按依赖顺序安装。better-sidebar 缺省使用官方 web profile
-# 当前验证版本 0.16.0；BS_VERSION 可覆盖以做前向兼容验证。
-BS_VERSION="${BS_VERSION:-0.16.0}"
+# 当前 Generation 验证版本；BS_VERSION 可覆盖以做前向兼容验证。
+BS_VERSION="${BS_VERSION:-0.17.1}"
 say "安装 dsh-annotation-core..."
 $DSH_CMD plugin --profile web add "file:$CORE_TARBALL"
 say "安装 dsh-better-sidebar@${BS_VERSION}..."
