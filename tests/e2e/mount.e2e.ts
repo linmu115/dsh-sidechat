@@ -166,6 +166,11 @@ function mainComposer(page: Page): Locator {
   return page.locator('textarea:visible, [contenteditable="true"]:visible').last()
 }
 
+async function clickElement(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible({ timeout: 15_000 })
+  await locator.evaluate((element) => (element as HTMLElement).click())
+}
+
 function expectClean(errors: ReturnType<typeof collectErrors>): void {
   expect(errors.pageErrors).toEqual([])
   expect(errors.consoleErrors.filter(text => PLUGIN_CONSOLE.test(text))).toEqual([])
@@ -237,17 +242,17 @@ test('main reference uses a clean shared rail and renumbers after deletion', asy
   expect(draft).not.toContain('full history snapshot')
   expect(draft).not.toContain('@')
 
-  await page.getByRole('button', { name: '打开注释 1' }).click()
+  await clickElement(page.getByRole('button', { name: '打开注释 1' }))
   const comment = page.locator('.dshAnnotationComment').first()
   await expect(comment).toBeVisible()
   await comment.fill('watch the memory cost')
   await comment.blur()
-  await page.getByRole('button', { name: '关闭注释详情' }).click()
+  await clickElement(page.getByRole('button', { name: '关闭注释详情' }))
 
   await injectSelection(page, 'the right call')
   await overlay.getByText('Add to conversation').click()
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(2, { timeout: 15_000 })
-  await page.getByRole('button', { name: '删除注释 1' }).click()
+  await clickElement(page.getByRole('button', { name: '删除注释 1' }))
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(1, { timeout: 15_000 })
   await expect(page.getByRole('button', { name: '打开注释 1' })).toHaveCount(1)
   await expect(page.getByRole('button', { name: '打开注释 2' })).toHaveCount(0)
