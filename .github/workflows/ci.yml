@@ -71,6 +71,9 @@ jobs:
       - name: Install official DSH Alpha.1 source workspace
         run: pnpm --dir .dsh-alpha1 install --frozen-lockfile
 
+      - name: Build official DSH Alpha.1 libraries
+        run: pnpm --dir .dsh-alpha1 build:lib
+
       - name: Build and pack the npm tarball
         run: pnpm build && pnpm pack
 
