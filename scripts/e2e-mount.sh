@@ -177,7 +177,11 @@ curl -s "$URL/api/workspace.create" -X POST -H 'content-type: application/json' 
 
 # 步骤 5：Playwright 无头渲染 lane
 say "运行 Playwright 无头渲染 lane..."
-DSH_E2E_URL="$URL" DSH_E2E_WORKSPACE="$WORKSPACE_DIR" DSH_E2E_SEED_SESSION="$SEED_SESSION_ID" \
-  pnpm exec playwright test ${GREP_FILTER:+--grep "$GREP_FILTER"}
+if ! DSH_E2E_URL="$URL" DSH_E2E_WORKSPACE="$WORKSPACE_DIR" DSH_E2E_SEED_SESSION="$SEED_SESSION_ID" \
+  pnpm exec playwright test ${GREP_FILTER:+--grep "$GREP_FILTER"}; then
+  echo "=== dsh web 日志尾部 ===" >&2
+  tail -80 "$WEB_LOG" >&2 || true
+  exit 1
+fi
 
 say "通过：dsh-sidechat 挂载到真实 DSH 后无头渲染未崩溃"
