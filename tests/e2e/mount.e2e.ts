@@ -1,11 +1,46 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, request, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 const BASE_URL = process.env.DSH_E2E_URL
 if (!BASE_URL) throw new Error('DSH_E2E_URL is not set — run via scripts/e2e-mount.sh')
+const LAUNCH_URL = new URL(BASE_URL)
+const ORIGIN = LAUNCH_URL.origin
 const CORE_MODE = process.env.DSH_E2E_CORE_MODE ?? 'compatible'
 const MANAGER_AVAILABLE = process.env.DSH_E2E_MANAGER === '1'
 const PLUGIN_CONSOLE = /dsh-sidechat|dsh-annotation-core|Unhandled/
+
+let hostApi: APIRequestContext | undefined
+let authCookie: string | undefined
+
+async function prepareAlphaHost(): Promise<void> {
+  if (LAUNCH_URL.searchParams.has('token')) {
+    const exchange = await fetch(BASE_URL!, { redirect: 'manual' })
+    const setCookie = exchange.headers.get('set-cookie')
+    if (setCookie === null) {
+      throw new Error(`DSH token exchange failed: HTTP ${exchange.status} carried no set-cookie`)
+    }
+    authCookie = setCookie.split(';', 1)[0]
+  }
+
+  hostApi = await request.newContext({
+    baseURL: ORIGIN,
+    extraHTTPHeaders: authCookie === undefined ? {} : { cookie: authCookie },
+  })
+  const workspacePath = process.env.DSH_E2E_WORKSPACE
+  if (workspacePath === undefined) return
+  const response = await hostApi.post('/api/workspace/create', {
+    data: {
+      type: 'client-request',
+      rpcId: 'e2e-workspace',
+      method: 'workspace/create',
+      payload: { args: { request: { path: workspacePath } } },
+    },
+  })
+  const body = await response.text()
+  if (!response.ok() || !body.includes('"ok":true')) {
+    throw new Error(`workspace/create failed: HTTP ${response.status()} ${body.slice(0, 400)}`)
+  }
+}
 
 interface RouteSnapshot {
   revision: number
@@ -129,8 +164,24 @@ function expectClean(errors: ReturnType<typeof collectErrors>): void {
   expect(errors.consoleErrors.filter(text => PLUGIN_CONSOLE.test(text))).toEqual([])
 }
 
+test.beforeAll(async () => {
+  await prepareAlphaHost()
+})
+
+test.afterAll(async () => {
+  await hostApi?.dispose()
+})
+
 test.beforeEach(async ({ page }) => {
-  await page.goto(BASE_URL!, { waitUntil: 'domcontentloaded' })
+  if (authCookie !== undefined) {
+    const separator = authCookie.indexOf('=')
+    await page.context().addCookies([{
+      name: authCookie.slice(0, separator),
+      value: authCookie.slice(separator + 1),
+      url: ORIGIN,
+    }])
+  }
+  await page.goto(ORIGIN, { waitUntil: 'domcontentloaded' })
   await expect(page.locator('#root > *')).not.toHaveCount(0, { timeout: 90_000 })
   await dismissOnboarding(page)
 })

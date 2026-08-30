@@ -162,7 +162,7 @@ for _ in $(seq 1 120); do
     tail -30 "$WEB_LOG" >&2 || true
     exit 1
   fi
-  if URL="$(grep -oE 'dsh web: http://127\.0\.0\.1:[0-9]+' "$WEB_LOG" | head -1 | awk '{print $3}')" && [ -n "$URL" ]; then
+  if URL="$(grep -oE 'dsh web: http://127\.0\.0\.1:[^[:space:]]+' "$WEB_LOG" | head -1 | awk '{print $3}')" && [ -n "$URL" ]; then
     break
   fi
   sleep 1
@@ -170,10 +170,10 @@ done
 [ -n "$URL" ] || { echo "=== 120s 内未等到 dsh web 就绪，日志尾部 ===" >&2; tail -40 "$WEB_LOG" >&2 || true; exit 1; }
 say "dsh web 就绪：${URL}（pid ${SERVER_PID}）"
 
-# 步骤 4b：注册 scratch 工作区（伪造会话的 cwd 挂在它下面才会进 GUI 列表）
-curl -s "$URL/api/workspace.create" -X POST -H 'content-type: application/json' \
-  -d "{\"type\":\"client-request\",\"rpcId\":\"e2e-workspace\",\"method\":\"workspace.create\",\"payload\":{\"path\":\"$WORKSPACE_DIR\"}}" \
-  | grep -q '"ok":true' && say "工作区已注册: $WORKSPACE_DIR" || warn "workspace.create 未确认（继续，测试内会再试）"
+# 步骤 4b：Alpha.1 的完整 URL 携带一次性 Token。Playwright 先交换
+# Token→Cookie，再通过新的 slash RPC 注册 scratch 工作区；不要在这里
+# 用 curl 抢先消费 Token，也不要把 API 路径拼到带 query 的 URL 后面。
+say "工作区将在已认证浏览器上下文中注册: $WORKSPACE_DIR"
 
 # 步骤 5：Playwright 无头渲染 lane
 say "运行 Playwright 无头渲染 lane..."
