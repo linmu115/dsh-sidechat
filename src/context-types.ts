@@ -10,8 +10,8 @@
  *
  * Authorities:
  * - betterSidebar: dsh-better-sidebar `src/client/service.ts` (+ docs/external-plugin-guide.md)
- * - sessions/workspaces: `@deepseek-ai/dsh-client-runtime` lib/types/client/contract/{sessions,session,workspaces}.d.ts
- *   (local checkout: <dsh install>/node_modules/@deepseek-ai/dsh-client-runtime/lib/types/client/...)
+ * - sessions: `@deepseek-ai/dsh-api-session-controller/client`
+ * - workspaces: `@deepseek-ai/dsh-api-workspace-controller/client`
  */
 import type { Context as CordisContext } from 'cordis'
 import type { ReactNode } from 'react'
@@ -127,7 +127,7 @@ export interface BetterSidebarService {
   subscribe(listener: () => void): () => void
 }
 
-// ── sessions (dsh-client-runtime) ────────────────────────────────────────────
+// ── sessions (dsh-api-session-controller) ───────────────────────────────────
 
 export interface SessionListSnapshot {
   /** Currently selected session id. */
@@ -146,18 +146,22 @@ export type PromptContentPart = { type: 'text'; text: string } | { type: string;
 
 /**
  * Conversation read model (subset). Extend from
- * dsh-client-runtime `lib/types/client/sessions/conversation.d.ts` as needed —
- * the real shape has chat/nodes/partial/queue/running and more.
+ * `@deepseek-ai/dsh-api-session-controller/client` as needed. Conversation
+ * target data stays on `uiConversation`, not this lifecycle snapshot.
  */
 export interface ConversationSnapshot {
   sessionId: SessionId
   nodes: readonly unknown[]
+  chatNodes?: readonly unknown[]
   running: boolean
   [key: string]: unknown
 }
 
 export interface ISession {
   readonly sessionId: SessionId
+  readonly projections: {
+    faceOf(key: string): ObservableSnapshot<unknown>
+  }
   prompt(content: PromptContentPart[], mode: 'queue' | 'steer'): Promise<unknown>
   cancel(): Promise<unknown>
   rename(title: string): Promise<unknown>
@@ -179,37 +183,34 @@ export interface SessionsService {
   open(id: SessionId): void
 }
 
-// ── workspaces (dsh-client-runtime) ─────────────────────────────────────────
+export interface ChatProjectionSnapshot {
+  readonly nodes: { values(): readonly unknown[] }
+  readonly legacy: {
+    readonly nodes: readonly unknown[]
+    readonly partial: unknown
+    readonly runningCalls: readonly unknown[]
+  }
+}
+
+export interface UiConversationService {
+  binding(id: SessionId): {
+    target(name: 'chat'): ObservableSnapshot<ChatProjectionSnapshot | undefined>
+  }
+}
+
+// ── workspaces (dsh-api-workspace-controller) ───────────────────────────────
 
 export interface WorkspacesService {
   archiveSession(sessionId: SessionId): Promise<void>
 }
 
-// ── connection（dsh-client-connection；sessions RPC 直达面）──────────────────
+// ── model projection（dsh-api-session-controller）───────────────────────────
 
-/** 会话的当前模型选择（`session.models` 的 current 字段）。 */
+/** 会话模型选择投影中的完整路由。 */
 export interface ModelSelection {
   provider: string
   model: string
   reasoningEffort?: string
-}
-
-export interface SessionModelsResult {
-  current: ModelSelection
-  routable: boolean
-  groups: readonly unknown[]
-}
-
-export interface RpcEnvelope<T> {
-  result: { ok: true; value: T } | { ok: false; error: { message?: string } }
-}
-
-export interface ConnectionSessionsApi {
-  models(payload: { sessionId: SessionId }): Promise<RpcEnvelope<SessionModelsResult>>
-}
-
-export interface ConnectionService {
-  api: { sessions: ConnectionSessionsApi }
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -225,7 +226,7 @@ export interface Context extends CordisContext {
   betterSidebar: BetterSidebarService
   sessions: SessionsService
   workspaces: WorkspacesService
-  connection: ConnectionService
+  uiConversation: UiConversationService
   locale: LocaleService
 }
 
@@ -233,8 +234,7 @@ export interface Context extends CordisContext {
 // 下列声明经接口合并补进上方镜像；权威来源逐节标注。
 
 /**
- * 会话列表快照补全（权威：dsh-client-runtime
- * lib/types/client/sessions/service.d.ts 的 SessionListState）：
+ * 会话列表快照补全（权威：dsh-api-session-controller/client 的 SessionListState）：
  * phase 标「首次成功拉取」就绪边；byId 含已归档行（归档过滤在
  * workspace UI 层，store 本身携带全部行）。
  */
@@ -244,7 +244,7 @@ export interface SessionListSnapshot {
 }
 
 /**
- * 会话快照补全（权威：dsh-client-runtime sessions/conversation.d.ts）：
+ * 会话快照补全（权威：dsh-api-session-controller/client 的 SessionSnapshot）：
  * openState 是历史窗口生命周期（cold = 未开窗口）；partial/runningCalls
  * 承载在途流式输出。面板折叠函数对三者全部容错（缺省按空处理）。
  */

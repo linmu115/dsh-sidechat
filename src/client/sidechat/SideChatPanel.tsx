@@ -1,5 +1,5 @@
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from 'react'
 import { IconNewChatOutline16, IconSendOutline16, IconStopFill16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 
 import type { Context, SessionFace, TabComponentProps } from '../../context-types.ts'
@@ -23,7 +23,12 @@ import { canSubmitWithModel, isComposerSubmitKey } from './model-submit-gate.ts'
 import css from './sidechat.module.css'
 
 const NOOP_UNSUBSCRIBE = (): void => {}
-function codeLabels() { return { copyLabel: t('codeCopy'), copiedLabel: t('codeCopied') } }
+type AlphaMarkdownProps = {
+  text: string
+  streaming?: boolean
+  labels: { code: { copyLabel: string; copiedLabel: string }; footnotes: string }
+}
+const AlphaMarkdownText = MarkdownText as unknown as ComponentType<AlphaMarkdownProps>
 
 function openSessionWindow(session: SessionFace | undefined): void {
   const openable = session as unknown as { open?: () => Promise<void> } | undefined
@@ -34,9 +39,10 @@ function openSessionWindow(session: SessionFace | undefined): void {
 export function SideChatPanel(props: TabComponentProps & {
   annotationCore: AnnotationCoreAvailability
   modelCoordinator: SidechatModelCoordinator
+  runtime: Pick<Context, 'betterSidebar' | 'sessions' | 'uiConversation' | 'workspaces'>
 }) {
   useLocaleTick()
-  const { ctx, scope, tab, visible, store } = props
+  const { runtime, scope, tab, visible, store } = props
   const tabMeta = parseSideChatMeta(tab.meta)
   const registeredChildId = tabMeta.childId
   const parentSessionId = tabMeta.parentSessionId ?? scope.sessionId
@@ -51,11 +57,11 @@ export function SideChatPanel(props: TabComponentProps & {
   useEffect(() => {
     if (registeredChildId !== undefined) { setProvisionedChildId(registeredChildId); return }
     let active = true
-    void ensureSideChatSession(ctx, tab.id, scope.sessionId)
+    void ensureSideChatSession(runtime, tab.id, scope.sessionId)
       .then(childId => { if (active) { setProvisionedChildId(childId); setForkError(null) } })
       .catch(error => { if (active) setForkError(error instanceof Error ? error.message : String(error)) })
     return () => { active = false }
-  }, [ctx, tab.id, scope.sessionId, registeredChildId])
+  }, [runtime, tab.id, scope.sessionId, registeredChildId])
 
   const childId = registeredChildId ?? provisionedChildId
   useEffect(() => {
@@ -72,11 +78,11 @@ export function SideChatPanel(props: TabComponentProps & {
     () => props.modelCoordinator.getSnapshot(childId ?? ''),
   )
   const listSnapshot = useSyncExternalStore(
-    useCallback((notify: () => void) => ctx.sessions.list.subscribe(notify), [ctx]),
-    () => ctx.sessions.list.getSnapshot(),
+    useCallback((notify: () => void) => runtime.sessions.list.subscribe(notify), [runtime]),
+    () => runtime.sessions.list.getSnapshot(),
   )
   const listed = childId !== undefined && listSnapshot.byId?.[childId] !== undefined
-  const session = childId === undefined ? undefined : ctx.sessions.binding(childId)?.session
+  const session = childId === undefined ? undefined : runtime.sessions.binding(childId)?.session
   useEffect(() => { openSessionWindow(session) }, [session])
   const phase = phaseOf({
     childId,
@@ -86,10 +92,25 @@ export function SideChatPanel(props: TabComponentProps & {
     listed,
   })
 
-  const snapshot = useSyncExternalStore(
+  const sessionSnapshot = useSyncExternalStore(
     useCallback((notify: () => void) => visible && session !== undefined ? session.subscribe(notify) : NOOP_UNSUBSCRIBE, [visible, session]),
     () => session?.getSnapshot() ?? null,
   )
+  const chat = useMemo(() => {
+    if (childId === undefined || session === undefined) return undefined
+    try { return runtime.uiConversation.binding(childId).target('chat') } catch { return undefined }
+  }, [runtime.uiConversation, childId, session])
+  const chatSnapshot = useSyncExternalStore(
+    useCallback((notify: () => void) => visible && chat !== undefined ? chat.subscribe(notify) : NOOP_UNSUBSCRIBE, [visible, chat]),
+    () => chat?.getSnapshot() ?? null,
+  )
+  const snapshot = useMemo(() => sessionSnapshot === null ? null : ({
+    ...sessionSnapshot,
+    nodes: chatSnapshot?.legacy.nodes ?? [],
+    partial: chatSnapshot?.legacy.partial ?? null,
+    runningCalls: chatSnapshot?.legacy.runningCalls ?? [],
+    chatNodes: chatSnapshot?.nodes.values() ?? [],
+  }), [sessionSnapshot, chatSnapshot])
   const annotationCore = useSyncExternalStore(props.annotationCore.subscribe, props.annotationCore.getSnapshot)
   const projectionCore = annotationCore
   const answerCore = annotationCore
@@ -174,13 +195,20 @@ function answerClick(core: Pick<AnnotationCoreClient, 'handleAnswerLink'> | unde
 function MessageRow(props: { message: ChatMessage; sessionId: string; answerCore: Pick<AnnotationCoreClient, 'handleAnswerLink'> | undefined }) {
   useLocaleTick()
   const { message } = props
+  const copyLabel = t('codeCopy')
+  const copiedLabel = t('codeCopied')
+  const footnotes = t('markdownFootnotes')
+  const markdownLabels = useMemo(() => ({
+    code: { copyLabel, copiedLabel },
+    footnotes,
+  }), [copyLabel, copiedLabel, footnotes])
   switch (message.role) {
     case 'user': return <div className={css.userRow}><div className={css.userBubble}>{message.text}</div></div>
     case 'assistant': return (
       <div className={css.assistantRow} onClickCapture={event => { answerClick(props.answerCore, props.sessionId, event) }}>
         <div className={css.assistantBody}>
           {message.reasoning && <details className={css.reasoning}><summary>{t('thinking')}</summary><div className={css.reasoningBody}>{message.reasoning}</div></details>}
-          {message.text !== '' ? <MarkdownText text={message.text} streaming={message.streaming} codeLabels={codeLabels()} /> : message.streaming === true && <div className={css.streamingHint}>{t('writing')}</div>}
+          {message.text !== '' ? <AlphaMarkdownText text={message.text} streaming={message.streaming} labels={markdownLabels} /> : message.streaming === true && <div className={css.streamingHint}>{t('writing')}</div>}
           {message.interrupted === true && <div className={css.noticeRow}>{t('stopped')}</div>}
         </div>
       </div>

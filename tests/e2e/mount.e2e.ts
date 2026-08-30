@@ -1,11 +1,46 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, request, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 const BASE_URL = process.env.DSH_E2E_URL
 if (!BASE_URL) throw new Error('DSH_E2E_URL is not set — run via scripts/e2e-mount.sh')
+const LAUNCH_URL = new URL(BASE_URL)
+const ORIGIN = LAUNCH_URL.origin
 const CORE_MODE = process.env.DSH_E2E_CORE_MODE ?? 'compatible'
 const MANAGER_AVAILABLE = process.env.DSH_E2E_MANAGER === '1'
 const PLUGIN_CONSOLE = /dsh-sidechat|dsh-annotation-core|Unhandled/
+
+let hostApi: APIRequestContext | undefined
+let authCookie: string | undefined
+
+async function prepareAlphaHost(): Promise<void> {
+  if (LAUNCH_URL.searchParams.has('token')) {
+    const exchange = await fetch(BASE_URL!, { redirect: 'manual' })
+    const setCookie = exchange.headers.get('set-cookie')
+    if (setCookie === null) {
+      throw new Error(`DSH token exchange failed: HTTP ${exchange.status} carried no set-cookie`)
+    }
+    authCookie = setCookie.split(';', 1)[0]
+  }
+
+  hostApi = await request.newContext({
+    baseURL: ORIGIN,
+    extraHTTPHeaders: authCookie === undefined ? {} : { cookie: authCookie },
+  })
+  const workspacePath = process.env.DSH_E2E_WORKSPACE
+  if (workspacePath === undefined) return
+  const response = await hostApi.post('/api/workspace/create', {
+    data: {
+      type: 'client-request',
+      rpcId: 'e2e-workspace',
+      method: 'workspace/create',
+      payload: { args: { request: { path: workspacePath } } },
+    },
+  })
+  const body = await response.text()
+  if (!response.ok() || !body.includes('"ok":true')) {
+    throw new Error(`workspace/create failed: HTTP ${response.status()} ${body.slice(0, 400)}`)
+  }
+}
 
 interface RouteSnapshot {
   revision: number
@@ -124,13 +159,41 @@ function collectErrors(page: Page): { pageErrors: string[]; consoleErrors: strin
   return state
 }
 
+function mainComposer(page: Page): Locator {
+  // Alpha.1's native composer no longer exposes the rc.x accessible name.
+  // Keep this tied to editable controls instead of a translated label; the
+  // conversation is already open before callers use it.
+  return page.locator('textarea:visible, [contenteditable="true"]:visible').last()
+}
+
+async function clickElement(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible({ timeout: 15_000 })
+  await locator.evaluate((element) => (element as HTMLElement).click())
+}
+
 function expectClean(errors: ReturnType<typeof collectErrors>): void {
   expect(errors.pageErrors).toEqual([])
   expect(errors.consoleErrors.filter(text => PLUGIN_CONSOLE.test(text))).toEqual([])
 }
 
+test.beforeAll(async () => {
+  await prepareAlphaHost()
+})
+
+test.afterAll(async () => {
+  await hostApi?.dispose()
+})
+
 test.beforeEach(async ({ page }) => {
-  await page.goto(BASE_URL!, { waitUntil: 'domcontentloaded' })
+  if (authCookie !== undefined) {
+    const separator = authCookie.indexOf('=')
+    await page.context().addCookies([{
+      name: authCookie.slice(0, separator),
+      value: authCookie.slice(separator + 1),
+      url: ORIGIN,
+    }])
+  }
+  await page.goto(ORIGIN, { waitUntil: 'domcontentloaded' })
   await expect(page.locator('#root > *')).not.toHaveCount(0, { timeout: 90_000 })
   await dismissOnboarding(page)
 })
@@ -170,22 +233,26 @@ test('main reference uses a clean shared rail and renumbers after deletion', asy
   await overlay.getByText('Add to conversation').click()
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(1, { timeout: 15_000 })
 
-  const composer = page.getByRole('textbox', { name: /Message the agent|输入消息|随心输入/ }).first()
-  const draft = await composer.inputValue().catch(async () => composer.textContent() ?? '')
+  const composer = mainComposer(page)
+  await expect(composer).toBeVisible({ timeout: 15_000 })
+  const draft = await composer.evaluate((element) =>
+    element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement
+      ? element.value
+      : element.textContent ?? '')
   expect(draft).not.toContain('full history snapshot')
   expect(draft).not.toContain('@')
 
-  await page.getByRole('button', { name: '打开注释 1' }).click()
+  await clickElement(page.getByRole('button', { name: '打开注释 1' }))
   const comment = page.locator('.dshAnnotationComment').first()
   await expect(comment).toBeVisible()
   await comment.fill('watch the memory cost')
   await comment.blur()
-  await page.getByRole('button', { name: '关闭注释详情' }).click()
+  await clickElement(page.getByRole('button', { name: '关闭注释详情' }))
 
   await injectSelection(page, 'the right call')
   await overlay.getByText('Add to conversation').click()
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(2, { timeout: 15_000 })
-  await page.getByRole('button', { name: '删除注释 1' }).click()
+  await clickElement(page.getByRole('button', { name: '删除注释 1' }))
   await expect(page.locator('[data-annotation-chip]')).toHaveCount(1, { timeout: 15_000 })
   await expect(page.getByRole('button', { name: '打开注释 1' })).toHaveCount(1)
   await expect(page.getByRole('button', { name: '打开注释 2' })).toHaveCount(0)
@@ -320,7 +387,8 @@ test('Manager model-select hot-switches every mounted sidechat and persists inhe
 test('/side command opens the side chat', async ({ page }) => {
   test.skip(!process.env.DSH_E2E_SEED_SESSION, 'no seeded session')
   await openSeedSession(page)
-  const composer = page.getByRole('textbox', { name: /Message the agent|输入消息|随心输入/ }).first()
+  const composer = mainComposer(page)
+  await expect(composer).toBeVisible({ timeout: 15_000 })
   await composer.click(); await page.keyboard.type('/')
   const entry = page.getByRole('option', { name: /side/ }).first()
   await expect(entry).toBeVisible({ timeout: 10_000 }); await entry.click()

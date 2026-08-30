@@ -1,21 +1,23 @@
 import type { Context, SidebarTab } from '../../context-types.ts'
 import { collectTabs, parseSideChatMeta } from './model.ts'
 
+export type SideChatSessionRuntime = Pick<Context, 'betterSidebar' | 'sessions' | 'workspaces'>
+
 const pendingByTab = new Map<string, Promise<string>>()
 const abortByTab = new Map<string, AbortController>()
 
-export function readSideChatTab(ctx: Context, tabId: string): SidebarTab | undefined {
+export function readSideChatTab(ctx: Pick<Context, 'betterSidebar'>, tabId: string): SidebarTab | undefined {
   return collectTabs(ctx.betterSidebar.getSnapshot().state).find(tab => tab.id === tabId)
 }
 
-async function bestEffortArchive(ctx: Context, sessionId: string): Promise<void> {
+async function bestEffortArchive(ctx: Pick<Context, 'workspaces'>, sessionId: string): Promise<void> {
   try { await ctx.workspaces.archiveSession(sessionId) } catch (error) {
     console.warn('[dsh-sidechat] failed to archive side session:', error)
   }
 }
 
 /** Fork and register one durable child session, deduplicated per sidebar tab. */
-export function ensureSideChatSession(ctx: Context, tabId: string, parentSessionId: string): Promise<string> {
+export function ensureSideChatSession(ctx: SideChatSessionRuntime, tabId: string, parentSessionId: string): Promise<string> {
   const registered = parseSideChatMeta(readSideChatTab(ctx, tabId)?.meta).childId
   if (registered !== undefined) return Promise.resolve(registered)
   const current = pendingByTab.get(tabId)

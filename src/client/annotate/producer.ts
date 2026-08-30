@@ -1,4 +1,4 @@
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
 
 import type { Context } from '../../context-types.ts'
 import { annotationSafetyGuard } from '../annotation-safety-guard.ts'

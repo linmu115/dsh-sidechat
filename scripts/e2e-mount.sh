@@ -9,7 +9,8 @@
 #   4. 启动真实 `dsh web --port 0`（keyless），Playwright 无头渲染断言。
 #
 # 用法：bash scripts/e2e-mount.sh [--grep <playwright-filter>]
-# 环境变量：DSH_CMD / CORE_TARBALL / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME。
+# 环境变量：DSH_CMD / DSH_SOURCE_ROOT / CORE_TARBALL / CORE_SOURCE /
+# CORE_REF / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME。
 # =============================================================================
 set -euo pipefail
 
@@ -17,6 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 DSH_CMD="${DSH_CMD:-dsh}"
+DSH_SOURCE_ROOT="${DSH_SOURCE_ROOT:-}"
 PORT="${PORT:-0}"
 TARBALL="${TARBALL:-}"
 CORE_TARBALL="${CORE_TARBALL:-}"
@@ -30,13 +32,17 @@ die()  { printf '\033[31m[e2e-mount]\033[0m %s\n' "$*" >&2; exit 1; }
 command -v node >/dev/null 2>&1 || die "未找到 node"
 command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm"
 
-if ! command -v "$DSH_CMD" >/dev/null 2>&1; then
-  if command -v npx >/dev/null 2>&1; then
-    say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
-    DSH_CMD="npx -y --package @deepseek-ai/dsh dsh"
-  else
-    die "未找到 $DSH_CMD 或 npx"
-  fi
+if [ -n "$DSH_SOURCE_ROOT" ]; then
+  [ -f "$DSH_SOURCE_ROOT/package.json" ] || die "DSH_SOURCE_ROOT 无效: $DSH_SOURCE_ROOT"
+  DSH=(pnpm --dir "$DSH_SOURCE_ROOT" dsh)
+  say "使用 DSH 源码工作区: $DSH_SOURCE_ROOT"
+elif command -v "$DSH_CMD" >/dev/null 2>&1; then
+  DSH=("$DSH_CMD")
+elif command -v npx >/dev/null 2>&1; then
+  say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
+  DSH=(npx -y --package @deepseek-ai/dsh dsh)
+else
+  die "未找到 $DSH_CMD 或 npx"
 fi
 
 if [ -z "$TARBALL" ]; then
@@ -50,12 +56,17 @@ if [ -z "$CORE_TARBALL" ]; then
   CORE_TARBALL="$(ls "$ROOT"/dsh-annotation-core-*.tgz "$ROOT"/../dsh-annotation-core/dsh-annotation-core-*.tgz 2>/dev/null | head -1 || true)"
 fi
 if [ -z "$CORE_TARBALL" ]; then
-  CORE_PACKAGE_ROOT="$(node -e 'const path = require("node:path"); console.log(path.dirname(require.resolve("dsh-annotation-core/package.json")))')"
-  say "从已锁定的公开依赖生成 core tarball..."
+  CORE_SOURCE="${CORE_SOURCE:-https://github.com/linmu115/dsh-annotation-core.git}"
+  CORE_REF="${CORE_REF:-main}"
+  CORE_PACKAGE_ROOT="$(mktemp -d /tmp/dsh-annotation-core-e2e.XXXXXX)"
+  say "从 ${CORE_SOURCE}#${CORE_REF} 构建能力提供者..."
+  git clone --depth 1 --branch "$CORE_REF" "$CORE_SOURCE" "$CORE_PACKAGE_ROOT"
+  pnpm --dir "$CORE_PACKAGE_ROOT" install --frozen-lockfile
+  pnpm --dir "$CORE_PACKAGE_ROOT" build
   CORE_VERSION="$(node -e 'console.log(require(process.argv[1]).version)' "$CORE_PACKAGE_ROOT/package.json")"
   CORE_TARBALL="$ROOT/dsh-annotation-core-$CORE_VERSION.tgz"
-  tar -czf "$CORE_TARBALL" --transform='s,^,package/,' -C "$CORE_PACKAGE_ROOT" \
-    package.json LICENSE README.md README_EN.md cordis.patch.yml lib
+  pnpm --dir "$CORE_PACKAGE_ROOT" pack --pack-destination "$ROOT"
+  rm -rf "$CORE_PACKAGE_ROOT"
 fi
 [ -n "$CORE_TARBALL" ] && [ -f "$CORE_TARBALL" ] || die "找不到 dsh-annotation-core tarball——设置 CORE_TARBALL"
 CORE_TARBALL="$(cd "$(dirname "$CORE_TARBALL")" && pwd)/$(basename "$CORE_TARBALL")"
@@ -73,6 +84,11 @@ cleanup() {
   local code=$?
   if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
+    for _ in $(seq 1 50); do
+      kill -0 "$SERVER_PID" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -KILL "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
   fi
   if [ -z "${KEEP_HOME:-}" ]; then
@@ -117,14 +133,14 @@ minimumReleaseAgeExclude:
 EOF
 
 # 步骤 2：按依赖顺序安装。better-sidebar 缺省使用官方 web profile
-# 当前验证版本 0.16.0；BS_VERSION 可覆盖以做前向兼容验证。
-BS_VERSION="${BS_VERSION:-0.16.0}"
+# 当前 Generation 验证版本；BS_VERSION 可覆盖以做前向兼容验证。
+BS_VERSION="${BS_VERSION:-0.17.1}"
 say "安装 dsh-annotation-core..."
-$DSH_CMD plugin --profile web add "file:$CORE_TARBALL"
+"${DSH[@]}" plugin --profile web add "file:$CORE_TARBALL"
 say "安装 dsh-better-sidebar@${BS_VERSION}..."
-$DSH_CMD plugin --profile web add "dsh-better-sidebar@${BS_VERSION}"
+"${DSH[@]}" plugin --profile web add "dsh-better-sidebar@${BS_VERSION}"
 say "安装本插件 tarball..."
-$DSH_CMD plugin --profile web add "file:$TARBALL"
+"${DSH[@]}" plugin --profile web add "file:$TARBALL"
 
 node -e '
   const fs = require("fs");
@@ -141,7 +157,7 @@ say "伪造会话: $SEED_SESSION_ID"
 
 # 步骤 4：启动 dsh web
 say "启动 dsh web（port=${PORT}）..."
-$DSH_CMD web --port "$PORT" > "$WEB_LOG" 2>&1 &
+"${DSH[@]}" web --port "$PORT" > "$WEB_LOG" 2>&1 &
 SERVER_PID=$!
 
 URL=""
@@ -151,7 +167,7 @@ for _ in $(seq 1 120); do
     tail -30 "$WEB_LOG" >&2 || true
     exit 1
   fi
-  if URL="$(grep -oE 'dsh web: http://127\.0\.0\.1:[0-9]+' "$WEB_LOG" | head -1 | awk '{print $3}')" && [ -n "$URL" ]; then
+  if URL="$(grep -oE 'dsh web: http://127\.0\.0\.1:[^[:space:]]+' "$WEB_LOG" | head -1 | awk '{print $3}')" && [ -n "$URL" ]; then
     break
   fi
   sleep 1
@@ -159,14 +175,18 @@ done
 [ -n "$URL" ] || { echo "=== 120s 内未等到 dsh web 就绪，日志尾部 ===" >&2; tail -40 "$WEB_LOG" >&2 || true; exit 1; }
 say "dsh web 就绪：${URL}（pid ${SERVER_PID}）"
 
-# 步骤 4b：注册 scratch 工作区（伪造会话的 cwd 挂在它下面才会进 GUI 列表）
-curl -s "$URL/api/workspace.create" -X POST -H 'content-type: application/json' \
-  -d "{\"type\":\"client-request\",\"rpcId\":\"e2e-workspace\",\"method\":\"workspace.create\",\"payload\":{\"path\":\"$WORKSPACE_DIR\"}}" \
-  | grep -q '"ok":true' && say "工作区已注册: $WORKSPACE_DIR" || warn "workspace.create 未确认（继续，测试内会再试）"
+# 步骤 4b：Alpha.1 的完整 URL 携带一次性 Token。Playwright 先交换
+# Token→Cookie，再通过新的 slash RPC 注册 scratch 工作区；不要在这里
+# 用 curl 抢先消费 Token，也不要把 API 路径拼到带 query 的 URL 后面。
+say "工作区将在已认证浏览器上下文中注册: $WORKSPACE_DIR"
 
 # 步骤 5：Playwright 无头渲染 lane
 say "运行 Playwright 无头渲染 lane..."
-DSH_E2E_URL="$URL" DSH_E2E_WORKSPACE="$WORKSPACE_DIR" DSH_E2E_SEED_SESSION="$SEED_SESSION_ID" \
-  pnpm exec playwright test ${GREP_FILTER:+--grep "$GREP_FILTER"}
+if ! DSH_E2E_URL="$URL" DSH_E2E_WORKSPACE="$WORKSPACE_DIR" DSH_E2E_SEED_SESSION="$SEED_SESSION_ID" \
+  pnpm exec playwright test ${GREP_FILTER:+--grep "$GREP_FILTER"}; then
+  echo "=== dsh web 日志尾部 ===" >&2
+  tail -80 "$WEB_LOG" >&2 || true
+  exit 1
+fi
 
 say "通过：dsh-sidechat 挂载到真实 DSH 后无头渲染未崩溃"

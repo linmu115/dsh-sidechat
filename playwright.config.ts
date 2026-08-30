@@ -6,5 +6,6 @@ export default defineConfig({
   timeout: 180_000,
   retries: 0,
   workers: 1,
+  maxFailures: 1,
   reporter: [['list']],
 })

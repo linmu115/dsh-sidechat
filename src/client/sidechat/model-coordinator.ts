@@ -1,6 +1,6 @@
 import type {
-  ConnectionSessionsApi,
   ModelSelection,
+  SessionsService,
 } from '../../context-types.ts'
 import type { ModelRouteSnapshot } from '../../model-route.ts'
 import {
@@ -35,10 +35,6 @@ const MISSING_STATE: ChildModelState = Object.freeze({
 
 type Warn = (message: string, error?: unknown) => void
 
-function envelopeError(value: { result: { ok: boolean; error?: { message?: string } } }, fallback: string): Error {
-  return new Error(value.result.error?.message ?? fallback)
-}
-
 /**
  * Applies the page-wide route to mounted real child sessions.
  *
@@ -55,7 +51,7 @@ export class SidechatModelCoordinator {
 
   constructor(
     private readonly routes: ModelRouteStore,
-    private readonly api: ConnectionSessionsApi,
+    private readonly sessions: SessionsService,
     private readonly warn: Warn = (message, error) => {
       console.warn(`[dsh-sidechat] ${message}`, error)
     },
@@ -234,8 +230,27 @@ export class SidechatModelCoordinator {
   }
 
   private async current(sessionId: string): Promise<ModelSelection> {
-    const response = await this.api.models({ sessionId })
-    if (!response.result.ok) throw envelopeError(response, `unable to read model for ${sessionId}`)
-    return response.result.value.current
+    const session = this.sessions.binding(sessionId)?.session
+    if (session === undefined) throw new Error(`unable to resolve session ${sessionId}`)
+    const value = session.projections.faceOf('modelSelection').getSnapshot()
+    if (typeof value !== 'object' || value === null) {
+      throw new Error(`session ${sessionId} has no model selection projection`)
+    }
+    const projection = value as { readonly next?: unknown; readonly lastUsed?: unknown }
+    const selected = projection.next ?? projection.lastUsed
+    if (typeof selected !== 'object' || selected === null) {
+      throw new Error(`session ${sessionId} has no effective model selection`)
+    }
+    const route = selected as Partial<ModelSelection>
+    if (typeof route.provider !== 'string' || route.provider === ''
+      || typeof route.model !== 'string' || route.model === ''
+      || (route.reasoningEffort !== undefined && typeof route.reasoningEffort !== 'string')) {
+      throw new Error(`session ${sessionId} exposed an invalid model selection`)
+    }
+    return {
+      provider: route.provider,
+      model: route.model,
+      ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }),
+    }
   }
 }

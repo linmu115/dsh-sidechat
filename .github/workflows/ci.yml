@@ -46,8 +46,18 @@ jobs:
     timeout-minutes: 30
     env:
       DSH_TELEMETRY_DISABLED: '1'
+      DSH_SOURCE_ROOT: ${{ github.workspace }}/.dsh-alpha1
+      # GitHub-hosted runners are disposable. Deleting the scratch profile's
+      # full node_modules tree can otherwise consume most of the job timeout.
+      KEEP_HOME: '1'
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: dsh-v0.1.2-alpha.1
+          path: .dsh-alpha1
 
       - uses: pnpm/action-setup@v6
         with:
@@ -61,8 +71,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install dsh CLI (pinned)
-        run: npm install -g @deepseek-ai/dsh@0.1.0-rc.6
+      - name: Install official DSH Alpha.1 source workspace
+        run: pnpm --dir .dsh-alpha1 install --frozen-lockfile
+
+      - name: Build official DSH Alpha.1 runtime and web frontend
+        run: |
+          pnpm --dir .dsh-alpha1 build:lib
+          pnpm --dir .dsh-alpha1 build:web
 
       - name: Build and pack the npm tarball
         run: pnpm build && pnpm pack

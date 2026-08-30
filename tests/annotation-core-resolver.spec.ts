@@ -4,7 +4,7 @@ import { observeAnnotationCore, resolveAnnotationCore } from '../src/client/anno
 
 describe('resolveAnnotationCore', () => {
   const compatible = {
-    version: '0.1.0',
+    version: '0.3.2',
     features: ['dsh-message-source-v1', 'embedded-composer-v1'],
   }
 
@@ -13,9 +13,15 @@ describe('resolveAnnotationCore', () => {
     expect(resolveAnnotationCore(ctx as never, ['dsh-message-source-v1'])).toBe(compatible)
   })
 
-  it('returns undefined for a missing, incompatible, or feature-incomplete service', () => {
+  it('accepts newer release lines when their requested capability remains available', () => {
+    const future = { ...compatible, version: '9.0.0-experimental.1' }
+    const ctx = { get: (name: string) => name === 'annotationCore' ? future : undefined }
+    expect(resolveAnnotationCore(ctx as never, ['dsh-message-source-v1'])).toBe(future)
+  })
+
+  it('returns undefined for a missing, unidentified, or feature-incomplete service', () => {
     expect(resolveAnnotationCore({ get: () => undefined } as never, ['dsh-message-source-v1'])).toBeUndefined()
-    expect(resolveAnnotationCore({ get: () => ({ ...compatible, version: '0.2.0' }) } as never, ['dsh-message-source-v1'])).toBeUndefined()
+    expect(resolveAnnotationCore({ get: () => ({ ...compatible, version: '' }) } as never, ['dsh-message-source-v1'])).toBeUndefined()
     expect(resolveAnnotationCore({ get: () => compatible } as never, ['answer-link-v1'])).toBeUndefined()
   })
 

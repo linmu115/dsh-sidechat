@@ -25,6 +25,14 @@ Acceptance criteria:
 
 Failure-isolation, hot-reload, removal, and current Workshop-baseline evidence remain `null` until the Workshop harness records them.
 
+## 0.4.0 local release evidence (2026-08-29)
+
+- DSH client target: `0.1.2-alpha.1` native Session projections and `uiConversation` Chat snapshots.
+- `pnpm typecheck`: passed.
+- `pnpm test`: 14 files / 95 tests passed.
+- `pnpm build` and `pnpm pack --dry-run --json`: passed.
+- Removed the deleted `connection.api.sessions` path; model-setting saves remain hot-loaded at the next request boundary.
+
 ## 0.3.1 local release evidence (2026-08-28)
 
 - `pnpm typecheck`: passed.

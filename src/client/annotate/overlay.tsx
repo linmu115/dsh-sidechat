@@ -1,4 +1,4 @@
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
 import { Component, useCallback, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 

@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
+  IconNewChatOutline16: () => null,
+  IconSendOutline16: () => null,
+  IconStopFill16: () => null,
+  MarkdownText: () => null,
+}))
 
 import {
   RevisionedPlainComposerPort,
@@ -11,6 +18,7 @@ import {
 } from '../src/client/sidechat/session-controller.ts'
 import { transcriptEntriesOf } from '../src/client/sidechat/model.ts'
 import { handleSideChatAnswerLink } from '../src/client/sidechat/answer-link.ts'
+import { registerSideChat } from '../src/client/sidechat/index.tsx'
 
 function sideState(meta?: unknown) {
   return {
@@ -54,6 +62,40 @@ describe('sidechat session controller', () => {
       betterSidebar: { getSnapshot: () => ({ state: sideState({ childId: 'existing', parentSessionId: 'parent' }) }) },
     }
     await expect(ensureSideChatSession(ctx as never, 'side:1', 'parent')).resolves.toBe('existing')
+  })
+})
+
+describe('sidechat panel runtime seam', () => {
+  it('passes the injected plugin context instead of the Better Sidebar render context', () => {
+    let descriptor: { component: (props: unknown) => { props: { runtime: unknown } } } | undefined
+    const injected = {
+      sessions: {
+        list: { getSnapshot: () => ({ byId: {} }), subscribe: () => () => {} },
+      },
+      workspaces: {},
+      uiConversation: {},
+      locale: {},
+      betterSidebar: {
+        registerTab(value: typeof descriptor) { descriptor = value; return () => {} },
+      },
+      effect(run: () => unknown) { return run() },
+      inject() {},
+      get() { return undefined },
+    }
+    registerSideChat(injected as never)
+    const sidebarRenderContext = new Proxy({}, {
+      get(_target, property) {
+        if (property === 'uiConversation') throw new Error('Sidebar ctx must not provide uiConversation')
+        return undefined
+      },
+    })
+    const element = descriptor!.component({
+      ctx: sidebarRenderContext,
+      scope: { sessionId: 'parent' },
+      tab: { id: 'side:test', type: 'dsh-sidechat:side', title: 'Side' },
+      visible: true,
+    })
+    expect(element.props.runtime).toBe(injected)
   })
 })
 
@@ -125,27 +167,27 @@ describe('shared embedded composer contract', () => {
 })
 
 describe('embedded conversation projection', () => {
-  it('delegates raw nodes to core before ordinary folding and preserves order', () => {
+  it('delegates native custom Chat nodes to core and merges them with legacy rows', () => {
     const calls: unknown[] = []
     const core = {
       renderConversationNode(input: { node: unknown }) {
         calls.push(input.node)
-        const node = input.node as { kind?: string; seq?: number }
+        const node = input.node as { kind?: string; anchorSeq?: number }
         return node.kind === 'dsh-annotation'
-          ? { key: `annotation:${node.seq}`, node: 'shared annotation bubble' }
+          ? { key: `annotation:${node.anchorSeq}`, node: 'shared annotation bubble' }
           : undefined
       },
     }
     const entries = transcriptEntriesOf({
       nodes: [
         { kind: 'user', seq: 1, content: [{ type: 'text', text: 'question' }] },
-        { kind: 'dsh-annotation', seq: 2 },
         { kind: 'assistant', seq: 3, blocks: [{ kind: 'text', text: 'answer' }] },
       ],
+      chatNodes: [{ key: 'annotation-context', kind: 'dsh-annotation', anchorSeq: 2, data: { count: 1 } }],
       running: false,
       sessionId: 'child',
     } as never, core as never, 'child')
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(1)
     expect(entries.map(entry => entry.key)).toEqual(['u:1', 'annotation:2', 'a:3'])
     expect(entries[1]).toMatchObject({ kind: 'custom', node: 'shared annotation bubble' })
   })

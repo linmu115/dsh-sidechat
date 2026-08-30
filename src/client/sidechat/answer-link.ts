@@ -1,4 +1,4 @@
-import type { AnnotationCoreClient } from 'dsh-annotation-core/client-api'
+import type { AnnotationCoreClient } from '../annotation-core-contract.ts'
 
 export function handleSideChatAnswerLink(
   core: Pick<AnnotationCoreClient, 'handleAnswerLink'> | undefined,

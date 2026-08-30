@@ -1,11 +1,9 @@
 import type {
   AnnotationCoreClient,
   AnnotationCoreFeature,
-} from 'dsh-annotation-core/client-api'
+} from './annotation-core-contract.ts'
 
 import type { Context } from '../context-types.ts'
-
-const SUPPORTED_CORE = /^0\.1\.\d+(?:[-+].*)?$/
 
 /**
  * Resolve the optional shared annotation service through Cordis only.
@@ -26,7 +24,10 @@ export function resolveAnnotationCore(
   }
   if (typeof candidate !== 'object' || candidate === null) return undefined
   const service = candidate as Partial<AnnotationCoreClient>
-  if (typeof service.version !== 'string' || !SUPPORTED_CORE.test(service.version)) return undefined
+  // Negotiate the capability contract, not a release line. Maintenance is an
+  // experimental matrix: a newer Core remains usable while it still exposes
+  // every feature this consumer needs.
+  if (typeof service.version !== 'string' || service.version.trim().length === 0) return undefined
   if (!Array.isArray(service.features)) return undefined
   if (!requiredFeatures.every(feature => service.features?.includes(feature) === true)) return undefined
   return service as AnnotationCoreClient
