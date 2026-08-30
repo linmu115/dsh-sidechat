@@ -9,8 +9,8 @@
 #   4. 启动真实 `dsh web --port 0`（keyless），Playwright 无头渲染断言。
 #
 # 用法：bash scripts/e2e-mount.sh [--grep <playwright-filter>]
-# 环境变量：DSH_CMD / CORE_TARBALL / CORE_SOURCE / CORE_REF / TARBALL /
-# PORT / DSH_HOME_BASE / KEEP_HOME。
+# 环境变量：DSH_CMD / DSH_SOURCE_ROOT / CORE_TARBALL / CORE_SOURCE /
+# CORE_REF / TARBALL / PORT / DSH_HOME_BASE / KEEP_HOME。
 # =============================================================================
 set -euo pipefail
 
@@ -18,6 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 DSH_CMD="${DSH_CMD:-dsh}"
+DSH_SOURCE_ROOT="${DSH_SOURCE_ROOT:-}"
 PORT="${PORT:-0}"
 TARBALL="${TARBALL:-}"
 CORE_TARBALL="${CORE_TARBALL:-}"
@@ -31,13 +32,17 @@ die()  { printf '\033[31m[e2e-mount]\033[0m %s\n' "$*" >&2; exit 1; }
 command -v node >/dev/null 2>&1 || die "未找到 node"
 command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm"
 
-if ! command -v "$DSH_CMD" >/dev/null 2>&1; then
-  if command -v npx >/dev/null 2>&1; then
-    say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
-    DSH_CMD="npx -y --package @deepseek-ai/dsh dsh"
-  else
-    die "未找到 $DSH_CMD 或 npx"
-  fi
+if [ -n "$DSH_SOURCE_ROOT" ]; then
+  [ -f "$DSH_SOURCE_ROOT/package.json" ] || die "DSH_SOURCE_ROOT 无效: $DSH_SOURCE_ROOT"
+  DSH=(pnpm --dir "$DSH_SOURCE_ROOT" dsh)
+  say "使用 DSH 源码工作区: $DSH_SOURCE_ROOT"
+elif command -v "$DSH_CMD" >/dev/null 2>&1; then
+  DSH=("$DSH_CMD")
+elif command -v npx >/dev/null 2>&1; then
+  say "PATH 上无 $DSH_CMD，回退 npx -y --package @deepseek-ai/dsh"
+  DSH=(npx -y --package @deepseek-ai/dsh dsh)
+else
+  die "未找到 $DSH_CMD 或 npx"
 fi
 
 if [ -z "$TARBALL" ]; then
@@ -126,11 +131,11 @@ EOF
 # 当前 Generation 验证版本；BS_VERSION 可覆盖以做前向兼容验证。
 BS_VERSION="${BS_VERSION:-0.17.1}"
 say "安装 dsh-annotation-core..."
-$DSH_CMD plugin --profile web add "file:$CORE_TARBALL"
+"${DSH[@]}" plugin --profile web add "file:$CORE_TARBALL"
 say "安装 dsh-better-sidebar@${BS_VERSION}..."
-$DSH_CMD plugin --profile web add "dsh-better-sidebar@${BS_VERSION}"
+"${DSH[@]}" plugin --profile web add "dsh-better-sidebar@${BS_VERSION}"
 say "安装本插件 tarball..."
-$DSH_CMD plugin --profile web add "file:$TARBALL"
+"${DSH[@]}" plugin --profile web add "file:$TARBALL"
 
 node -e '
   const fs = require("fs");
@@ -147,7 +152,7 @@ say "伪造会话: $SEED_SESSION_ID"
 
 # 步骤 4：启动 dsh web
 say "启动 dsh web（port=${PORT}）..."
-$DSH_CMD web --port "$PORT" > "$WEB_LOG" 2>&1 &
+"${DSH[@]}" web --port "$PORT" > "$WEB_LOG" 2>&1 &
 SERVER_PID=$!
 
 URL=""
