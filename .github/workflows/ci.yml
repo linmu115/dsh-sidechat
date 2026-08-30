@@ -47,6 +47,9 @@ jobs:
     env:
       DSH_TELEMETRY_DISABLED: '1'
       DSH_SOURCE_ROOT: ${{ github.workspace }}/.dsh-alpha1
+      # GitHub-hosted runners are disposable. Deleting the scratch profile's
+      # full node_modules tree can otherwise consume most of the job timeout.
+      KEEP_HOME: '1'
     steps:
       - uses: actions/checkout@v7
 
