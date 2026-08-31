@@ -1,11 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
-import {
-  installSettingsSection,
-  settingsNamespace,
-  type SettingsNamespace,
-  type SettingsSectionHooks,
-} from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
+// Declaration merge only: makes the Alpha.2 settings service visible on Context.
+import type {} from '@deepseek-ai/dsh-settings'
 
 import {
   copyModelRoute,
@@ -14,7 +10,7 @@ import {
   type ModelRouteSnapshot,
 } from '../model-route.ts'
 
-export const SIDECHAT_SETTINGS_NAMESPACE = settingsNamespace('dsh-sidechat')
+export const SIDECHAT_SETTINGS_NAMESPACE = 'dsh-sidechat' as const
 
 /** Cordis composition base plus the live user override owned by DSH Settings. */
 export interface SidechatSettings {
@@ -84,18 +80,51 @@ export class ModelRouteHub {
 
 export type SettingsSectionInstaller = (
   ctx: Context,
-  ns: SettingsNamespace,
+  ns: typeof SIDECHAT_SETTINGS_NAMESPACE,
   schema: z<SidechatSettings>,
   entry: SidechatSettings,
-  hooks: SettingsSectionHooks<SidechatSettings>,
+  hooks: {
+    setSource(source: () => SidechatSettings): void
+    onChange(): void
+    validate?(value: SidechatSettings): void
+  },
 ) => void
+
+const FIBER_DISPOSED = 4
+const FIBER_UNLOADING = 5
+
+function isUnloading(ctx: Context): boolean {
+  const state = ctx.fiber.state as number
+  return state === FIBER_UNLOADING || state === FIBER_DISPOSED
+}
+
+/** Alpha.2-native optional Settings wiring using the public service directly. */
+const installNativeSettingsSection: SettingsSectionInstaller = (ctx, ns, schema, entry, hooks) => {
+  ctx.inject(['settings'], (settingsCtx) => {
+    const scope = settingsCtx.settings.register(ns, schema, {
+      base: entry,
+      ...(hooks.validate === undefined ? {} : { validate: hooks.validate }),
+    })
+    hooks.setSource(() => scope.get())
+    settingsCtx.effect(() => () => {
+      if (isUnloading(ctx)) return
+      hooks.setSource(() => entry)
+      hooks.onChange()
+    })
+    hooks.onChange()
+    scope.watch(() => {
+      if (isUnloading(ctx)) return
+      hooks.onChange()
+    })
+  })
+}
 
 /** Install the canonical optional Settings seam and keep the hub in sync. */
 export function installSidechatModelSettings(
   ctx: Context,
   entry: SidechatSettings,
   hub: ModelRouteHub,
-  installer: SettingsSectionInstaller = installSettingsSection,
+  installer: SettingsSectionInstaller = installNativeSettingsSection,
 ): void {
   validateSidechatSettings(entry)
   let current = (): SidechatSettings => entry
