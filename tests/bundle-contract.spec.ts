@@ -13,19 +13,25 @@ function sourceFiles(root: string): string[] {
 }
 
 describe('consumer bundle contract', () => {
-  it('ships the live Manager model-select contract in the 0.4.4 package', () => {
+  it('ships the live Manager model-select contract in the 0.4.5 package', () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
       version: string
       files: string[]
       peerDependencies: Record<string, string>
       devDependencies: Record<string, string>
     }
-    expect(packageJson.version).toBe('0.4.4')
+    expect(packageJson.version).toBe('0.4.5')
     expect(packageJson.files).toContain('dsh-management')
     expect(packageJson.files).toContain('docs/changes')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-settings']).toBe('*')
     expect(packageJson.peerDependencies['@deepseek-ai/dsh-host-webserver']).toBe('*')
     expect(packageJson.devDependencies['dsh-annotation-core']).toBeUndefined()
+    expect(packageJson.devDependencies['@deepseek-ai/dsh-settings']).toBe('0.1.2-rc.1')
+
+    const settingsSource = readFileSync(join(process.cwd(), 'src', 'host', 'model-settings.ts'), 'utf8')
+    expect(settingsSource).toContain('settings.installSection(ctx, ns, schema, entry, hooks)')
+    expect(settingsSource).not.toContain('settings.register(ns')
+    expect(settingsSource).not.toContain('FIBER_UNLOADING')
 
     const panel = readFileSync(join(process.cwd(), 'dsh-management', 'panel.yaml'), 'utf8')
     for (const contract of [
