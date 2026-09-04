@@ -1,7 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-// Declaration merge only: makes the Alpha.2 settings service visible on Context.
-import type {} from '@deepseek-ai/dsh-settings'
+import type { SettingsSectionHooks } from '@deepseek-ai/dsh-settings'
 
 import {
   copyModelRoute,
@@ -83,39 +82,13 @@ export type SettingsSectionInstaller = (
   ns: typeof SIDECHAT_SETTINGS_NAMESPACE,
   schema: z<SidechatSettings>,
   entry: SidechatSettings,
-  hooks: {
-    setSource(source: () => SidechatSettings): void
-    onChange(): void
-    validate?(value: SidechatSettings): void
-  },
+  hooks: SettingsSectionHooks<SidechatSettings>,
 ) => void
 
-const FIBER_DISPOSED = 4
-const FIBER_UNLOADING = 5
-
-function isUnloading(ctx: Context): boolean {
-  const state = ctx.fiber.state as number
-  return state === FIBER_UNLOADING || state === FIBER_DISPOSED
-}
-
-/** Alpha.2-native optional Settings wiring using the public service directly. */
+/** RC1-native optional Settings wiring with provider-owned attach/detach. */
 const installNativeSettingsSection: SettingsSectionInstaller = (ctx, ns, schema, entry, hooks) => {
   ctx.inject(['settings'], (settingsCtx) => {
-    const scope = settingsCtx.settings.register(ns, schema, {
-      base: entry,
-      ...(hooks.validate === undefined ? {} : { validate: hooks.validate }),
-    })
-    hooks.setSource(() => scope.get())
-    settingsCtx.effect(() => () => {
-      if (isUnloading(ctx)) return
-      hooks.setSource(() => entry)
-      hooks.onChange()
-    })
-    hooks.onChange()
-    scope.watch(() => {
-      if (isUnloading(ctx)) return
-      hooks.onChange()
-    })
+    settingsCtx.settings.installSection(ctx, ns, schema, entry, hooks)
   })
 }
 
